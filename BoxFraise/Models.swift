@@ -50,9 +50,14 @@ struct FraiseInvitation: Codable, Identifiable {
         case seatsClaimed = "seats_claimed"
         case eventStatus  = "event_status"
         case eventDate    = "event_date"
+        case locationText = "location_text"
         case businessName = "business_name"
         case businessSlug = "business_slug"
     }
+
+    let locationText: String?
+    let lat: Double?
+    let lng: Double?
 
     var isPending: Bool   { status == "pending" }
     var isAccepted: Bool  { status == "accepted" }

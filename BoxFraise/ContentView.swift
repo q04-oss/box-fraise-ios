@@ -6,7 +6,7 @@ struct ContentView: View {
     @State private var selectedTab: Tab = .discover
 
     enum Tab: String, CaseIterable {
-        case discover, members, claims, account
+        case discover, claims, account
     }
 
     var body: some View {
@@ -14,10 +14,6 @@ struct ContentView: View {
             DiscoverTab()
                 .tabItem { Label("discover", systemImage: "house") }
                 .tag(Tab.discover)
-
-            MembersTab()
-                .tabItem { Label("members", systemImage: "person.2") }
-                .tag(Tab.members)
 
             InvitationsTab()
                 .tabItem { Label("claims", systemImage: "envelope") }

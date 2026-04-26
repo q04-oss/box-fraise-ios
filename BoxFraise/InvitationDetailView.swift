@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 struct InvitationDetailView: View {
     let invitation: FraiseInvitation
@@ -13,15 +14,19 @@ struct InvitationDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
+
+                // Header
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(invitation.businessName).font(.mono(11)).foregroundStyle(c.muted).tracking(0.5)
                     Text(invitation.title).font(.mono(20, weight: .medium)).foregroundStyle(c.text)
                 }
 
+                // Description
                 if let desc = invitation.description, !desc.isEmpty {
                     Text(desc).font(.mono(13)).foregroundStyle(c.muted).lineSpacing(5)
                 }
 
+                // Details
                 CardRows(rows: [
                     "status":    invitation.status,
                     "price":     "CA$\(invitation.priceCents / 100)",
@@ -29,6 +34,11 @@ struct InvitationDetailView: View {
                     "date":      invitation.eventDate ?? "tbd — set when threshold met",
                     "threshold": "\(invitation.minSeats) minimum",
                 ])
+
+                // Map — only shown when event is confirmed and location is set
+                if invitation.isConfirmed, let lat = invitation.lat, let lng = invitation.lng {
+                    locationCard(lat: lat, lng: lng)
+                }
 
                 if let error { ErrorText(message: error) }
 
@@ -41,6 +51,27 @@ struct InvitationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(c.background, for: .navigationBar)
     }
+
+    // MARK: - Location card
+
+    private func locationCard(lat: Double, lng: Double) -> some View {
+        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        let region = MKCoordinateRegion(center: coordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            if let loc = invitation.locationText {
+                SectionLabel(text: "location")
+                Text(loc).font(.mono(13)).foregroundStyle(c.text)
+            }
+            Map(initialPosition: .region(region)) {
+                Marker(invitation.businessName, coordinate: coordinate)
+            }
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(c.border, lineWidth: 0.5))
+        }
+    }
+
+    // MARK: - Actions
 
     @ViewBuilder
     private var actionButtons: some View {
