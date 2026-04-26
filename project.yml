@@ -1,0 +1,40 @@
+name: BoxFraise
+options:
+  bundleIdPrefix: com.boxfraise
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "15"
+  createIntermediateGroups: false
+
+packages:
+  stripe-ios:
+    url: https://github.com/stripe/stripe-ios
+    from: "23.0.0"
+
+targets:
+  BoxFraise:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: BoxFraise
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.boxfraise.app
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: BoxFraise/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BoxFraise/BoxFraise.entitlements
+        DEVELOPMENT_TEAM: ""  # Set to your Apple Developer Team ID before building
+        SUPPORTS_MACCATALYST: NO
+        ENABLE_PREVIEWS: YES
+      configs:
+        Debug:
+          DEBUG_INFORMATION_FORMAT: dwarf
+        Release:
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    dependencies:
+      - package: stripe-ios
+        product: StripePaymentSheet
