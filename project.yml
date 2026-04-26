@@ -28,6 +28,7 @@ targets:
         INFOPLIST_FILE: BoxFraise/Info.plist
         CODE_SIGN_ENTITLEMENTS: BoxFraise/BoxFraise.entitlements
         DEVELOPMENT_TEAM: ""  # Set to your Apple Developer Team ID before building
+        CODE_SIGN_STYLE: Automatic
         SUPPORTS_MACCATALYST: NO
         ENABLE_PREVIEWS: YES
       configs:
