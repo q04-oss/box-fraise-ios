@@ -45,6 +45,9 @@ workflows:
             - distribution_method: $BITRISE_DISTRIBUTION_METHOD
             - automatic_code_signing: api-key
             - export_development_team: $APPLE_TEAM_ID
+            - api_key_path: $BITRISEIO_APP_STORE_CONNECT_API_KEY_URL
+            - api_key_id: $BITRISEIO_APP_STORE_CONNECT_KEY_ID
+            - api_key_issuer_id: $BITRISEIO_APP_STORE_CONNECT_ISSUER_ID
 
       - save-spm-cache: {}
 
