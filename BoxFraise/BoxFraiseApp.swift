@@ -24,8 +24,7 @@ struct BoxFraiseApp: App {
 // MARK: - App config
 
 enum Config {
-    // Replace with your live key before submitting to App Store
-    static let stripePublishableKey = "pk_live_REPLACE_ME"
+    static let stripePublishableKey = "pk_live_51RcAlhKvPGIzTFOSIwpTd366LMTyCK7zCmQoWQ2xO48VFGOffz3BruPlGIe9bRq3ofUKuuV2pGwDBGSOswgsdyx600f0gkO722"
 }
 
 // MARK: - AppDelegate
