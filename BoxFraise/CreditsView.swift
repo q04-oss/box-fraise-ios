@@ -68,13 +68,7 @@ struct CreditsView: View {
                             paymentSheet: sheet,
                             onCompletion: handlePaymentResult
                         ) {
-                            Text("pay CA$\(credits * creditPrice) →")
-                                .font(.mono(12))
-                                .foregroundStyle(c.background)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 13)
-                                .background(c.text)
-                                .clipShape(Capsule())
+                            PrimaryButtonLabel(label: "pay CA$\(credits * creditPrice) →")
                         }
                     } else {
                         PrimaryButton(label: "continue →", loading: loading) {
@@ -90,9 +84,7 @@ struct CreditsView: View {
                 .padding(Spacing.lg)
             }
             .background(c.background)
-            .navigationTitle("buy credits")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(c.background, for: .navigationBar)
+            .fraiseNav("buy credits")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("cancel") { dismiss() }

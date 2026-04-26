@@ -42,25 +42,20 @@ struct HoldTab: View {
 
                 Spacer()
 
-                // Credit count — hero
-                VStack(spacing: 6) {
-                    Text("\(credits)")
-                        .font(.system(size: 88, weight: .medium, design: .monospaced))
-                        .foregroundStyle(c.text)
-                    Text((credits == 1 ? "credit" : "credits") + " held")
-                        .font(.mono(11)).foregroundStyle(c.muted).tracking(2)
-                }
+                MetricDisplay(
+                    value: "\(credits)",
+                    label: (credits == 1 ? "credit" : "credits") + " held"
+                )
 
                 Spacer().frame(height: Spacing.xl)
 
-                // Standing — secondary
-                VStack(spacing: 4) {
-                    Text("\(standing)")
-                        .font(.system(size: 34, weight: .regular, design: .monospaced))
-                        .foregroundStyle(c.muted)
-                    Text("standing")
-                        .font(.mono(10)).foregroundStyle(c.border).tracking(2)
-                }
+                MetricDisplay(
+                    value: "\(standing)",
+                    label: "standing",
+                    size: 34,
+                    valueColor: c.muted,
+                    labelColor: c.border
+                )
 
                 Spacer()
                 Spacer()

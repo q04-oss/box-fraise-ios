@@ -47,9 +47,7 @@ struct InvitationDetailView: View {
             .padding(Spacing.lg)
         }
         .background(c.background)
-        .navigationTitle("invitation")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(c.background, for: .navigationBar)
+        .fraiseNav("invitation")
     }
 
     // MARK: - Location card

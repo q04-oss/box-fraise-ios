@@ -1,5 +1,19 @@
 import SwiftUI
 
+// MARK: - PrimaryButtonLabel (shared capsule style — used by PrimaryButton and Stripe button)
+
+struct PrimaryButtonLabel: View {
+    let label: String
+    @Environment(\.fraiseColors) var c
+
+    var body: some View {
+        Text(label)
+            .font(.mono(12)).foregroundStyle(c.background)
+            .frame(maxWidth: .infinity).padding(.vertical, 13)
+            .background(c.text).clipShape(Capsule())
+    }
+}
+
 // MARK: - PrimaryButton
 
 struct PrimaryButton: View {
@@ -11,7 +25,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Text(label).font(.mono(12)).foregroundStyle(c.background).opacity(loading ? 0 : 1)
+                PrimaryButtonLabel(label: label).opacity(loading ? 0 : 1)
                 if loading { ProgressView().tint(c.background).scaleEffect(0.8) }
             }
             .frame(maxWidth: .infinity).padding(.vertical, 13)
@@ -33,6 +47,29 @@ struct GhostButton: View {
             Text(label).font(.mono(12)).foregroundStyle(c.muted)
                 .frame(maxWidth: .infinity).padding(.vertical, 13)
                 .overlay(Capsule().stroke(c.border, lineWidth: 1))
+        }
+    }
+}
+
+// MARK: - MetricDisplay (large number + label — credit count, standing, etc.)
+
+struct MetricDisplay: View {
+    let value: String
+    let label: String
+    var size: CGFloat = 88
+    var valueColor: Color? = nil
+    var labelColor: Color? = nil
+    @Environment(\.fraiseColors) var c
+
+    var body: some View {
+        VStack(spacing: size > 50 ? 6 : 4) {
+            Text(value)
+                .font(.system(size: size, weight: size > 50 ? .medium : .regular, design: .monospaced))
+                .foregroundStyle(valueColor ?? c.text)
+            Text(label)
+                .font(.mono(size > 50 ? 11 : 10))
+                .foregroundStyle(labelColor ?? c.muted)
+                .tracking(2)
         }
     }
 }
@@ -61,6 +98,27 @@ struct CardRows: View {
         FraiseCard {
             ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
                 StatRow(label: row.key, value: row.value, topBorder: i > 0)
+            }
+        }
+    }
+}
+
+// MARK: - LabeledSection (section label + card + bordered list)
+
+struct LabeledSection<Item: Identifiable, Content: View>: View {
+    let title: String
+    let items: [Item]
+    @ViewBuilder let content: (Item, Bool) -> Content  // (item, showBorder)
+
+    var body: some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionLabel(text: title)
+                FraiseCard {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                        content(item, i > 0)
+                    }
+                }
             }
         }
     }
@@ -199,5 +257,25 @@ struct OrDivider: View {
             Text("or").font(.mono(11)).foregroundStyle(c.muted)
             Rectangle().frame(height: 0.5).foregroundStyle(c.border)
         }
+    }
+}
+
+// MARK: - .fraiseNav modifier
+
+private struct FraiseNavModifier: ViewModifier {
+    let title: String
+    @Environment(\.fraiseColors) var c
+
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(c.background, for: .navigationBar)
+    }
+}
+
+extension View {
+    func fraiseNav(_ title: String) -> some View {
+        modifier(FraiseNavModifier(title: title))
     }
 }

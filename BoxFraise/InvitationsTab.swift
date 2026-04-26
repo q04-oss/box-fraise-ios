@@ -14,10 +14,10 @@ struct InvitationsTab: View {
                 } else {
                     ScrollView {
                         VStack(spacing: Spacing.md) {
-                            group("pending",   appState.invitations.filter { $0.isPending })
-                            group("accepted",  appState.invitations.filter { $0.isAccepted })
-                            group("confirmed", appState.invitations.filter { $0.isConfirmed })
-                            group("declined",  appState.invitations.filter { $0.isDeclined })
+                            LabeledSection(title: "pending",   items: appState.invitations.filter { $0.isPending })   { inv, border in row(inv, border) }
+                            LabeledSection(title: "accepted",  items: appState.invitations.filter { $0.isAccepted })  { inv, border in row(inv, border) }
+                            LabeledSection(title: "confirmed", items: appState.invitations.filter { $0.isConfirmed }) { inv, border in row(inv, border) }
+                            LabeledSection(title: "declined",  items: appState.invitations.filter { $0.isDeclined })  { inv, border in row(inv, border) }
                         }
                         .padding(Spacing.lg)
                     }
@@ -25,27 +25,15 @@ struct InvitationsTab: View {
                 }
             }
             .background(c.background)
-            .navigationTitle("invited")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(c.background, for: .navigationBar)
+            .fraiseNav("invited")
         }
     }
 
-    @ViewBuilder
-    private func group(_ title: String, _ invitations: [FraiseInvitation]) -> some View {
-        if !invitations.isEmpty {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                SectionLabel(text: title)
-                FraiseCard {
-                    ForEach(Array(invitations.enumerated()), id: \.element.id) { i, inv in
-                        NavigationLink(destination: InvitationDetailView(invitation: inv)) {
-                            InvitationRow(invitation: inv, showBorder: i > 0)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+    private func row(_ inv: FraiseInvitation, _ showBorder: Bool) -> some View {
+        NavigationLink(destination: InvitationDetailView(invitation: inv)) {
+            InvitationRow(invitation: inv, showBorder: showBorder)
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -59,10 +47,8 @@ struct InvitationRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(invitation.title)
-                    .font(.mono(13, weight: .medium)).foregroundStyle(c.text)
-                Text(invitation.businessName)
-                    .font(.mono(11)).foregroundStyle(c.muted)
+                Text(invitation.title).font(.mono(13, weight: .medium)).foregroundStyle(c.text)
+                Text(invitation.businessName).font(.mono(11)).foregroundStyle(c.muted)
             }
             Spacer()
             StatusBadge(status: invitation.status)
@@ -90,11 +76,7 @@ struct StatusBadge: View {
     }
 
     private var color: Color {
-        switch status {
-        case "confirmed": return Color(hex: "27AE60")
-        case "declined":  return Color(hex: "8E8E93")
-        default:          return Color(hex: "8E8E93")
-        }
+        status == "confirmed" ? Color(hex: "27AE60") : Color(hex: "8E8E93")
     }
 
     var body: some View {
