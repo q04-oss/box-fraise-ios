@@ -103,7 +103,7 @@ actor APIClient {
     }
 
     func updatePushToken(_ pushToken: String, token: String) async throws {
-        let _: OKResponse = try await request("/members/push-token", method: "PUT", body: ["push_token": pushToken], token: token)
+        try (try await request("/members/push-token", method: "PUT", body: ["push_token": pushToken], token: token) as OKResponse).validate()
     }
 
     // MARK: Invitations
@@ -113,11 +113,11 @@ actor APIClient {
     }
 
     func acceptInvitation(eventId: Int, token: String) async throws {
-        let _: OKResponse = try await request("/members/invitations/\(eventId)/accept", method: "POST", token: token)
+        try (try await request("/members/invitations/\(eventId)/accept", method: "POST", token: token) as OKResponse).validate()
     }
 
     func declineInvitation(eventId: Int, token: String) async throws {
-        let _: OKResponse = try await request("/members/invitations/\(eventId)/decline", method: "POST", token: token)
+        try (try await request("/members/invitations/\(eventId)/decline", method: "POST", token: token) as OKResponse).validate()
     }
 
     // MARK: Credits
@@ -127,8 +127,13 @@ actor APIClient {
     }
 
     func creditsConfirm(paymentIntentId: String, token: String) async throws {
-        let _: OKResponse = try await request("/members/credits/confirm", method: "POST", body: ["payment_intent_id": paymentIntentId], token: token)
+        try (try await request("/members/credits/confirm", method: "POST", body: ["payment_intent_id": paymentIntentId], token: token) as OKResponse).validate()
     }
 }
 
-private struct OKResponse: Decodable { let ok: Bool }
+private struct OKResponse: Decodable {
+    let ok: Bool
+    func validate() throws {
+        if !ok { throw APIError.serverError("operation failed") }
+    }
+}
