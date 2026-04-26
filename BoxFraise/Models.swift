@@ -54,11 +54,11 @@ struct FraiseInvitation: Codable, Identifiable {
         case businessSlug = "business_slug"
     }
 
-    var isPending: Bool    { status == "pending" }
-    var isAccepted: Bool   { status == "accepted" }
-    var isConfirmed: Bool  { status == "confirmed" }
-    var isDeclined: Bool   { status == "declined" }
-    var isActive: Bool     { status != "declined" }
+    var isPending: Bool   { status == "pending" }
+    var isAccepted: Bool  { status == "accepted" }
+    var isConfirmed: Bool { status == "confirmed" }
+    var isDeclined: Bool  { status == "declined" }
+    var isActive: Bool    { !isDeclined }
 }
 
 struct FraiseMemberPublic: Codable, Identifiable {
@@ -75,21 +75,12 @@ struct FraiseMemberPublic: Codable, Identifiable {
     }
 }
 
-// MARK: - Response envelopes
-
-struct InvitationsResponse: Codable {
-    let invitations: [FraiseInvitation]
-}
-
-struct DirectoryResponse: Codable {
-    let members: [FraiseMemberPublic]
-}
+// MARK: - Response types
 
 struct CheckoutResponse: Codable {
     let clientSecret: String
     let amountCents: Int
     let credits: Int
-
     enum CodingKeys: String, CodingKey {
         case credits
         case clientSecret = "client_secret"
@@ -101,7 +92,6 @@ struct CreditsConfirmResponse: Codable {
     let ok: Bool
     let creditsAdded: Int
     let creditBalance: Int
-
     enum CodingKeys: String, CodingKey {
         case ok
         case creditsAdded  = "credits_added"
@@ -113,7 +103,6 @@ struct AcceptResponse: Codable {
     let ok: Bool
     let creditBalance: Int
     let seatsClaimed: Int
-
     enum CodingKeys: String, CodingKey {
         case ok
         case creditBalance = "credit_balance"
@@ -125,7 +114,6 @@ struct DeclineResponse: Codable {
     let ok: Bool
     let creditReturned: Bool
     let creditBalance: Int
-
     enum CodingKeys: String, CodingKey {
         case ok
         case creditReturned = "credit_returned"
