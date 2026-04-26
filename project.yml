@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.boxfraise
   deploymentTarget:
     iOS: "17.0"
-  xcodeVersion: "15"
+  xcodeVersion: "16"
   createIntermediateGroups: false
 
 packages:
