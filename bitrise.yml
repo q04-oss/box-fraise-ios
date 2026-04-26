@@ -1,0 +1,53 @@
+format_version: "13"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+
+app:
+  envs:
+    - BITRISE_PROJECT_PATH: BoxFraise.xcodeproj
+      opts:
+        is_expand: false
+    - BITRISE_SCHEME: BoxFraise
+      opts:
+        is_expand: false
+    - BITRISE_DISTRIBUTION_METHOD: app-store
+      opts:
+        is_expand: false
+
+workflows:
+  deploy:
+    steps:
+      - git-clone: {}
+
+      - script:
+          title: Install XcodeGen
+          inputs:
+            - content: brew install xcodegen
+
+      - script:
+          title: Generate Xcode project
+          inputs:
+            - content: xcodegen generate
+
+      - script:
+          title: Set team ID
+          inputs:
+            - content: |
+                envman add --key DEVELOPMENT_TEAM --value "$APPLE_TEAM_ID"
+                sed -i '' "s/DEVELOPMENT_TEAM = \"\"/DEVELOPMENT_TEAM = $APPLE_TEAM_ID/" BoxFraise.xcodeproj/project.pbxproj
+
+      - restore-spm-cache: {}
+
+      - xcode-archive:
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: $BITRISE_SCHEME
+            - distribution_method: $BITRISE_DISTRIBUTION_METHOD
+            - automatic_code_signing: api-key
+            - export_development_team: $APPLE_TEAM_ID
+
+      - save-spm-cache: {}
+
+      - deploy-to-itunesconnect-application-loader:
+          inputs:
+            - connection: api_key
