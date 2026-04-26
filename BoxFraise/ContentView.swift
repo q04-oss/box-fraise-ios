@@ -1,9 +1,15 @@
 import SwiftUI
 
+private struct TabBarHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 struct ContentView: View {
     @Environment(AppState.self) var appState
     @Environment(\.fraiseColors) var c
     @State private var tab: Tab = .hold
+    @State private var tabBarHeight: CGFloat = 0
 
     enum Tab { case hold, invited }
 
@@ -15,12 +21,18 @@ struct ContentView: View {
                 InvitationsTab().opacity(tab == .invited ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 56) }
+            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: tabBarHeight) }
 
             tabBar
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: TabBarHeightKey.self, value: geo.size.height)
+                    }
+                )
         }
         .ignoresSafeArea(edges: .bottom)
         .background(c.background)
+        .onPreferenceChange(TabBarHeightKey.self) { tabBarHeight = $0 }
         .onChange(of: appState.pendingScreen) { _, screen in
             guard let screen else { return }
             tab = (screen == "my-claims") ? .invited : .hold

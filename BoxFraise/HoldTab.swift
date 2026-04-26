@@ -154,17 +154,20 @@ struct HoldTab: View {
 
     private func submit() {
         error = nil
+        let e = email.trimmingCharacters(in: .whitespaces).lowercased()
+        let n = name.trimmingCharacters(in: .whitespaces)
+        if authMode == .signIn {
+            guard !e.isEmpty, !password.isEmpty else { error = "email and password required."; return }
+        } else {
+            guard !n.isEmpty, !e.isEmpty, password.count >= 8 else { error = "name, email, and password (8+ chars) required."; return }
+        }
         Task {
             loading = true
             do {
-                let e = email.trimmingCharacters(in: .whitespaces).lowercased()
                 let member: FraiseMember
                 if authMode == .signIn {
-                    guard !e.isEmpty, !password.isEmpty else { error = "email and password required."; loading = false; return }
                     member = try await APIClient.shared.login(email: e, password: password)
                 } else {
-                    let n = name.trimmingCharacters(in: .whitespaces)
-                    guard !n.isEmpty, !e.isEmpty, password.count >= 8 else { error = "name, email, and password (8+ chars) required."; loading = false; return }
                     member = try await APIClient.shared.signup(name: n, email: e, password: password)
                 }
                 await finalize(member)

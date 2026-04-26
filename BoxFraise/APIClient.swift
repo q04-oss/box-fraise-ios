@@ -33,7 +33,7 @@ private struct AnyKey: CodingKey {
     var stringValue: String
     var intValue: Int? { nil }
     init(stringValue: String) { self.stringValue = stringValue }
-    init?(intValue: Int) { nil }
+    init?(intValue: Int) { return nil }
 }
 
 // MARK: - Client
@@ -55,7 +55,7 @@ actor APIClient {
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { req.setValue(token, forHTTPHeaderField: "x-member-token") }
-        if let body  { req.httpBody = try? JSONSerialization.data(withJSONObject: body) }
+        if let body  { req.httpBody = try JSONSerialization.data(withJSONObject: body) }
 
         let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
