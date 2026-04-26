@@ -3,32 +3,16 @@ workflows:
     name: Box Fraise TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
-
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.boxfraise.app
       vars:
         XCODE_PROJECT: BoxFraise.xcodeproj
         XCODE_SCHEME: BoxFraise
-        BUNDLE_ID: com.boxfraise.app
       xcode: 16.3
-
     scripts:
       - name: Install XcodeGen
         script: brew install xcodegen
-
       - name: Generate Xcode project
         script: xcodegen generate
-
-      - name: Set team ID
-        script: |
-          sed -i '' "s/DEVELOPMENT_TEAM = \"\"/DEVELOPMENT_TEAM = $APPLE_TEAM_ID/" BoxFraise.xcodeproj/project.pbxproj
-
-      - name: Resolve SPM packages
-        script: |
-          xcodebuild -resolvePackageDependencies -project $XCODE_PROJECT -scheme $XCODE_SCHEME
-
       - name: Build and archive
         script: |
           xcodebuild \
@@ -39,7 +23,6 @@ workflows:
             archive \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=$APPLE_TEAM_ID
-
       - name: Export IPA
         script: |
           xcodebuild \
@@ -47,11 +30,8 @@ workflows:
             -archivePath build/BoxFraise.xcarchive \
             -exportOptionsPlist export_options.plist \
             -exportPath build/ipa
-
     artifacts:
       - build/ipa/*.ipa
-      - build/BoxFraise.xcarchive
-
     publishing:
       app_store_connect:
         auth: integration
