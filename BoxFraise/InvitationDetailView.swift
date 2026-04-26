@@ -94,7 +94,7 @@ struct InvitationDetailView: View {
     private func accept() async {
         guard let token = Keychain.memberToken else { return }
         loading = true; error = nil
-        do { _ = try await APIClient.shared.acceptInvitation(eventId: invitation.eventId, token: token)
+        do { try await APIClient.shared.acceptInvitation(eventId: invitation.eventId, token: token)
              await appState.refreshInvitations(); await appState.refreshMe(); dismiss() }
         catch { self.error = error.localizedDescription }
         loading = false
@@ -103,7 +103,7 @@ struct InvitationDetailView: View {
     private func decline() async {
         guard let token = Keychain.memberToken else { return }
         loading = true; error = nil
-        do { _ = try await APIClient.shared.declineInvitation(eventId: invitation.eventId, token: token)
+        do { try await APIClient.shared.declineInvitation(eventId: invitation.eventId, token: token)
              await appState.refreshInvitations(); await appState.refreshMe(); dismiss() }
         catch { self.error = error.localizedDescription }
         loading = false

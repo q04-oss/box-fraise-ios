@@ -66,20 +66,6 @@ struct FraiseInvitation: Codable, Identifiable {
     var isActive: Bool    { !isDeclined }
 }
 
-struct FraiseMemberPublic: Codable, Identifiable {
-    let id: Int
-    let name: String
-    let standing: Int
-    let eventsAttended: Int
-    let createdAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, standing
-        case eventsAttended = "events_attended"
-        case createdAt      = "created_at"
-    }
-}
-
 // MARK: - Response types
 
 struct CheckoutResponse: Codable {
@@ -93,35 +79,3 @@ struct CheckoutResponse: Codable {
     }
 }
 
-struct CreditsConfirmResponse: Codable {
-    let ok: Bool
-    let creditsAdded: Int
-    let creditBalance: Int
-    enum CodingKeys: String, CodingKey {
-        case ok
-        case creditsAdded  = "credits_added"
-        case creditBalance = "credit_balance"
-    }
-}
-
-struct AcceptResponse: Codable {
-    let ok: Bool
-    let creditBalance: Int
-    let seatsClaimed: Int
-    enum CodingKeys: String, CodingKey {
-        case ok
-        case creditBalance = "credit_balance"
-        case seatsClaimed  = "seats_claimed"
-    }
-}
-
-struct DeclineResponse: Codable {
-    let ok: Bool
-    let creditReturned: Bool
-    let creditBalance: Int
-    enum CodingKeys: String, CodingKey {
-        case ok
-        case creditReturned = "credit_returned"
-        case creditBalance  = "credit_balance"
-    }
-}

@@ -17,9 +17,6 @@ struct BoxFraiseApp: App {
                     STPAPIClient.shared.publishableKey = Config.stripePublishableKey
                 }
                 .task { await appState.bootstrap() }
-                .onReceive(NotificationCenter.default.publisher(for: .appStateDidChange)) { _ in
-                    Task { await appState.bootstrap() }
-                }
         }
     }
 }
@@ -82,6 +79,3 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 }
 
-extension Notification.Name {
-    static let appStateDidChange = Notification.Name("appStateDidChange")
-}

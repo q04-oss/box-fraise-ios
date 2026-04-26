@@ -158,39 +158,6 @@ struct EmptyStateView: View {
     }
 }
 
-// MARK: - RemoteView (loading / error / content)
-
-struct RemoteView<T, Content: View>: View {
-    let fetch: () async throws -> T
-    @ViewBuilder let content: (T) -> Content
-
-    @State private var value: T? = nil
-    @State private var isLoading = false
-    @State private var errorMessage: String? = nil
-
-    var body: some View {
-        Group {
-            if isLoading && value == nil {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let err = errorMessage, value == nil {
-                EmptyStateView(err)
-            } else if let value {
-                content(value).refreshable { await load() }
-            } else {
-                EmptyView()
-            }
-        }
-        .task { await load() }
-    }
-
-    private func load() async {
-        isLoading = true
-        do    { value = try await fetch() }
-        catch { errorMessage = error.localizedDescription }
-        isLoading = false
-    }
-}
-
 // MARK: - SectionLabel
 
 struct SectionLabel: View {

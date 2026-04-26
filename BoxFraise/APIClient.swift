@@ -112,12 +112,12 @@ actor APIClient {
         try await requestWrapped("/members/invitations", token: token)
     }
 
-    func acceptInvitation(eventId: Int, token: String) async throws -> AcceptResponse {
-        try await request("/members/invitations/\(eventId)/accept", method: "POST", token: token)
+    func acceptInvitation(eventId: Int, token: String) async throws {
+        let _: OKResponse = try await request("/members/invitations/\(eventId)/accept", method: "POST", token: token)
     }
 
-    func declineInvitation(eventId: Int, token: String) async throws -> DeclineResponse {
-        try await request("/members/invitations/\(eventId)/decline", method: "POST", token: token)
+    func declineInvitation(eventId: Int, token: String) async throws {
+        let _: OKResponse = try await request("/members/invitations/\(eventId)/decline", method: "POST", token: token)
     }
 
     // MARK: Credits
@@ -126,14 +126,8 @@ actor APIClient {
         try await request("/members/credits/checkout", method: "POST", body: ["credits": credits], token: token)
     }
 
-    func creditsConfirm(paymentIntentId: String, token: String) async throws -> CreditsConfirmResponse {
-        try await request("/members/credits/confirm", method: "POST", body: ["payment_intent_id": paymentIntentId], token: token)
-    }
-
-    // MARK: Directory
-
-    func fetchDirectory(token: String) async throws -> [FraiseMemberPublic] {
-        try await requestWrapped("/members/directory", token: token)
+    func creditsConfirm(paymentIntentId: String, token: String) async throws {
+        let _: OKResponse = try await request("/members/credits/confirm", method: "POST", body: ["payment_intent_id": paymentIntentId], token: token)
     }
 }
 

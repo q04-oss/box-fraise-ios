@@ -143,7 +143,7 @@ struct CreditsView: View {
               let intentId = pendingIntentId else { return }
         loading = true
         do {
-            _ = try await APIClient.shared.creditsConfirm(paymentIntentId: intentId, token: token)
+            try await APIClient.shared.creditsConfirm(paymentIntentId: intentId, token: token)
             await appState.refreshMe()
             dismiss()
         } catch {
