@@ -89,6 +89,14 @@ actor APIClient {
         try await request("/members/signup", method: "POST", body: ["name": name, "email": email, "password": password])
     }
 
+    func forgotPassword(email: String) async throws {
+        try (try await request("/members/forgot-password", method: "POST", body: ["email": email]) as OKResponse).validate()
+    }
+
+    func resetPassword(email: String, code: String, password: String) async throws {
+        try (try await request("/members/reset-password", method: "POST", body: ["email": email, "code": code, "password": password]) as OKResponse).validate()
+    }
+
     func appleSignIn(identityToken: String, name: String?, email: String?) async throws -> FraiseMember {
         var body: [String: Any] = ["identityToken": identityToken]
         if let name  { body["name"]  = name }

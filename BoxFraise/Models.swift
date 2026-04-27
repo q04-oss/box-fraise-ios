@@ -53,6 +53,7 @@ struct FraiseInvitation: Codable, Identifiable {
         case locationText = "location_text"
         case businessName = "business_name"
         case businessSlug = "business_slug"
+        case lat, lng
     }
 
     let locationText: String?

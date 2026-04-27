@@ -6,11 +6,12 @@ struct CreditsView: View {
     @Environment(\.fraiseColors) var c
     @Environment(\.dismiss) var dismiss
 
-    @State private var credits      = 1
-    @State private var loading      = false
+    @State private var credits        = 1
+    @State private var loading        = false
     @State private var error: String? = nil
     @State private var paymentSheet: PaymentSheet? = nil
     @State private var pendingIntentId: String? = nil
+    @State private var termsAccepted  = false
 
     private let creditPrice = 120 // CA$120
 
@@ -20,9 +21,9 @@ struct CreditsView: View {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
 
                     FraiseCard {
-                        StatRow(label: "price per credit", value: "CA$\(creditPrice)", topBorder: false)
-                        StatRow(label: "current balance",  value: "\(appState.member?.creditBalance ?? 0) credits")
-                        StatRow(label: "purchasing",       value: "\(credits) credit\(credits == 1 ? "" : "s")")
+                        StatRow(label: "price per akène",  value: "CA$\(creditPrice)", topBorder: false)
+                        StatRow(label: "current balance",  value: "\(appState.member?.creditBalance ?? 0) akène\(appState.member?.creditBalance == 1 ? "" : "s")")
+                        StatRow(label: "purchasing",       value: "\(credits) akène\(credits == 1 ? "" : "s")")
                         StatRow(label: "total",            value: "CA$\(credits * creditPrice)")
                     }
 
@@ -63,6 +64,32 @@ struct CreditsView: View {
 
                     if let error { ErrorText(message: error) }
 
+                    // Terms acknowledgment
+                    Button {
+                        termsAccepted.toggle()
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(termsAccepted ? c.text : c.border, lineWidth: 1)
+                                    .frame(width: 18, height: 18)
+                                if termsAccepted {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(c.text)
+                                        .frame(width: 18, height: 18)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(c.background)
+                                }
+                            }
+                            .padding(.top, 1)
+                            Text("i understand: akènes are non-refundable, but returned automatically if an event is cancelled.")
+                                .font(.mono(11)).foregroundStyle(c.muted)
+                                .lineSpacing(4).multilineTextAlignment(.leading)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
                     if let sheet = paymentSheet {
                         PaymentSheet.PaymentButton(
                             paymentSheet: sheet,
@@ -70,13 +97,17 @@ struct CreditsView: View {
                         ) {
                             PrimaryButtonLabel(label: "pay CA$\(credits * creditPrice) →")
                         }
+                        .disabled(!termsAccepted)
+                        .opacity(termsAccepted ? 1 : 0.35)
                     } else {
                         PrimaryButton(label: "continue →", loading: loading) {
                             Task { await prepareCheckout() }
                         }
+                        .disabled(!termsAccepted)
+                        .opacity(termsAccepted ? 1 : 0.35)
                     }
 
-                    Text("one credit = CA$\(creditPrice). no subscription, no expiry. returned automatically if an event doesn't go ahead.")
+                    Text("one akène = CA$\(creditPrice). no subscription, no expiry. returned automatically if an event doesn't go ahead.")
                         .font(.mono(11))
                         .foregroundStyle(c.muted)
                         .lineSpacing(4)
