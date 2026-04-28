@@ -485,6 +485,64 @@ struct AkeneMyEvent: Codable, Identifiable {
     var isConfirmed: Bool { status == "confirmed" }
 }
 
+// MARK: - Date nights & promotions
+
+struct DateInvitation: Codable, Identifiable {
+    let id: Int
+    let status: String
+    let sentAt: String
+    let openedAt: String?
+    let feeCents: Int
+    let offerId: Int
+    let title: String
+    let description: String?
+    let eventDate: String
+    let businessName: String?
+    let businessAddress: String?
+    let businessNeighbourhood: String?
+
+    var isUnopened: Bool { openedAt == nil }
+    var isPending: Bool  { status == "pending" || status == "opened" }
+    var isMatched: Bool  { status == "matched" }
+}
+
+struct MemoryRequest: Codable, Identifiable {
+    let id: Int
+    let matchId: Int
+    let eventDate: String
+    let theirName: String?
+    let offerTitle: String?
+    let businessName: String?
+}
+
+struct PromotionDelivery: Codable, Identifiable {
+    let id: Int
+    let deliveredAt: String
+    let readAt: String?
+    let feeCents: Int
+    let promotionId: Int
+    let title: String
+    let body: String
+    let businessName: String?
+
+    var isUnread: Bool { readAt == nil }
+}
+
+struct UserEarnings: Codable {
+    let balanceCents: Int
+    struct Entry: Codable, Identifiable {
+        let id: Int
+        let sourceType: String
+        let amountCents: Int
+        let createdAt: String
+    }
+    let history: [Entry]
+}
+
+struct BusinessDateStats: Codable {
+    let memoriesCount: Int
+}
+
 // MARK: - Panel
 
 enum Panel: Equatable {

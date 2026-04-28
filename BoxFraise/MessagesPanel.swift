@@ -9,8 +9,22 @@ struct MessagesPanel: View {
     @State private var statusDraft = ""
     @State private var selectedThread: MessageThread?
     @State private var showCompose = false
+    @State private var tab: Tab = .messages
+    @State private var dateInvitations: [DateInvitation] = []
+    @State private var promotions: [PromotionDelivery] = []
+    @State private var memoryRequests: [MemoryRequest] = []
+    @State private var selectedMemory: MemoryRequest?
+    @State private var selectedDateInvitation: DateInvitation?
+    @State private var expandedPromotion: Int?
+
+    enum Tab { case messages, offers }
 
     private var totalUnread: Int { threads.reduce(0) { $0 + $1.unreadCount } }
+    private var offersUnread: Int {
+        memoryRequests.count +
+        dateInvitations.filter { $0.isPending }.count +
+        promotions.filter { $0.isUnread }.count
+    }
 
     private var dorotkaThread: MessageThread? { threads.first { $0.isDorotkaThread } }
     private var otherThreads: [MessageThread] { threads.filter { !$0.isDorotkaThread } }
@@ -45,6 +59,13 @@ struct MessagesPanel: View {
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
 
+            // Tab bar
+            HStack(spacing: 0) {
+                panelTab("messages", badge: totalUnread, selected: tab == .messages) { tab = .messages }
+                panelTab("offers", badge: offersUnread, selected: tab == .offers) { tab = .offers }
+            }
+            .padding(.horizontal, Spacing.md)
+
             // Status line
             if let status = state.user?.status, !status.isEmpty {
                 HStack(spacing: 6) {
@@ -58,7 +79,9 @@ struct MessagesPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            if loading && threads.isEmpty {
+            if tab == .offers {
+                offersTab
+            } else if loading && threads.isEmpty {
                 ScrollView {
                     VStack(spacing: 0) {
                         ForEach(0..<5, id: \.self) { _ in FraiseSkeletonRow(wide: true).padding(Spacing.md) }
@@ -95,6 +118,14 @@ struct MessagesPanel: View {
                 .refreshable { await load() }
             }
         }
+        .sheet(item: $selectedMemory) { mr in
+            MemoryPromptSheet(request: mr) { await loadOffers() }
+                .environment(state).fraiseTheme()
+        }
+        .sheet(item: $selectedDateInvitation) { inv in
+            DateInvitationSheet(invitation: inv) { await loadOffers() }
+                .environment(state).fraiseTheme()
+        }
         .sheet(item: $selectedThread) { thread in
             ThreadView(thread: thread)
                 .environment(state)
@@ -124,9 +155,23 @@ struct MessagesPanel: View {
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
         loading = true
-        threads = (try? await APIClient.shared.fetchThreads(token: token)) ?? []
-        state.totalUnreadMessages = threads.reduce(0) { $0 + $1.unreadCount }
+        async let t  = try? await APIClient.shared.fetchThreads(token: token)
+        if let v = await t {
+            threads = v
+            state.totalUnreadMessages = v.reduce(0) { $0 + $1.unreadCount }
+        }
         loading = false
+        await loadOffers()
+    }
+
+    @MainActor private func loadOffers() async {
+        guard let token = Keychain.userToken else { return }
+        async let d = try? await APIClient.shared.fetchDateInvitations(token: token)
+        async let p = try? await APIClient.shared.fetchPromotions(token: token)
+        async let m = try? await APIClient.shared.fetchMemoryRequests(token: token)
+        if let v = await d { dateInvitations = v }
+        if let v = await p { promotions = v }
+        if let v = await m { memoryRequests = v }
     }
 }
 
@@ -208,6 +253,388 @@ private struct ThreadRow: View {
         guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
         if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
         return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+// MARK: - Offers tab
+
+extension MessagesPanel {
+    var offersTab: some View {
+        ScrollView {
+            LazyVStack(spacing: Spacing.sm) {
+                // Memory prompts — highest priority
+                ForEach(memoryRequests) { mr in
+                    Button { selectedMemory = mr } label: { memoryCard(mr) }
+                }
+
+                // Date night invitations
+                if !dateInvitations.isEmpty {
+                    sectionHeader("dinner invitations")
+                    ForEach(dateInvitations) { inv in
+                        Button { selectedDateInvitation = inv } label: { dateCard(inv) }
+                    }
+                }
+
+                // Promotions
+                if !promotions.isEmpty {
+                    sectionHeader("from businesses")
+                    ForEach(promotions) { promo in
+                        promotionCard(promo)
+                    }
+                }
+
+                if memoryRequests.isEmpty && dateInvitations.isEmpty && promotions.isEmpty {
+                    FraiseEmptyState(icon: "tray", title: "no offers",
+                                     subtitle: "date night invitations and business promotions appear here.")
+                        .padding(.top, 60)
+                }
+            }
+            .padding(Spacing.md)
+        }
+        .refreshable { await loadOffers() }
+    }
+
+    private func sectionHeader(_ label: String) -> some View {
+        Text(label)
+            .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, Spacing.sm)
+    }
+
+    private func memoryCard(_ mr: MemoryRequest) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle().fill(c.text).frame(width: 36, height: 36)
+                    Image(systemName: "heart").font(.system(size: 14)).foregroundStyle(c.background)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("do you want to remember this?")
+                        .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
+                    if let name = mr.theirName {
+                        Text("your evening with \(name.lowercased())")
+                            .font(.mono(10)).foregroundStyle(c.muted)
+                    }
+                    if let biz = mr.businessName {
+                        Text("at \(biz.lowercased())").font(.mono(9)).foregroundStyle(c.muted)
+                    }
+                }
+            }
+            Text("tap to respond · if you both say yes, messaging opens between you.")
+                .font(.mono(9)).foregroundStyle(c.muted)
+        }
+        .padding(Spacing.md)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14)
+            .strokeBorder(c.text.opacity(0.25), lineWidth: 0.5))
+    }
+
+    private func dateCard(_ inv: DateInvitation) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        if inv.isUnopened {
+                            Text("CA$\(inv.feeCents / 100) to open")
+                                .font(.mono(8)).foregroundStyle(c.background)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                        }
+                        if inv.isMatched {
+                            Text("matched")
+                                .font(.mono(8)).foregroundStyle(Color(hex: "4CAF50"))
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color(hex: "4CAF50").opacity(0.12)).clipShape(Capsule())
+                        }
+                    }
+                    Text(inv.title.lowercased())
+                        .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
+                    if let biz = inv.businessName {
+                        Text(biz.lowercased()).font(.mono(10)).foregroundStyle(c.muted)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
+            }
+            HStack(spacing: 12) {
+                Label(formatDate(inv.eventDate), systemImage: "calendar")
+                    .font(.mono(9)).foregroundStyle(c.muted)
+                Label("meal covered", systemImage: "fork.knife")
+                    .font(.mono(9)).foregroundStyle(c.muted)
+            }
+        }
+        .padding(Spacing.md)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+            inv.isPending && inv.isUnopened ? c.text.opacity(0.2) : c.border, lineWidth: 0.5))
+    }
+
+    private func promotionCard(_ promo: PromotionDelivery) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(promo.businessName?.lowercased() ?? "business")
+                        .font(.mono(9)).foregroundStyle(c.muted)
+                    Text(promo.title.lowercased())
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                }
+                Spacer()
+                if promo.isUnread {
+                    Text("earn CA$\(promo.feeCents / 100)")
+                        .font(.mono(8)).foregroundStyle(c.background)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                }
+            }
+            if expandedPromotion == promo.id {
+                Text(promo.body.lowercased())
+                    .font(.mono(11)).foregroundStyle(c.muted).lineSpacing(3)
+            } else {
+                Text(promo.body.lowercased())
+                    .font(.mono(11)).foregroundStyle(c.muted)
+                    .lineLimit(2)
+                Button {
+                    expandedPromotion = promo.id
+                    if promo.isUnread {
+                        Task {
+                            guard let token = Keychain.userToken else { return }
+                            try? await APIClient.shared.readPromotion(id: promo.id, token: token)
+                            await loadOffers()
+                        }
+                    }
+                } label: {
+                    Text(promo.isUnread ? "read and earn CA$\(promo.feeCents / 100)" : "read more")
+                        .font(.mono(10)).foregroundStyle(promo.isUnread ? Color(hex: "4CAF50") : c.muted)
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+            promo.isUnread ? c.text.opacity(0.15) : c.border, lineWidth: 0.5))
+    }
+
+    private func panelTab(_ label: String, badge: Int, selected: Bool,
+                           action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                HStack(spacing: 5) {
+                    Text(label)
+                        .font(.mono(11, weight: selected ? .medium : .regular))
+                        .foregroundStyle(selected ? c.text : c.muted)
+                    if badge > 0 {
+                        Text("\(badge)")
+                            .font(.mono(8)).foregroundStyle(c.background)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(c.text).clipShape(Capsule())
+                    }
+                }
+                Rectangle().fill(selected ? c.text : Color.clear).frame(height: 1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.sm)
+    }
+
+    private func formatDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
+        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
+    }
+}
+
+// MARK: - Memory prompt sheet
+
+private struct MemoryPromptSheet: View {
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    let request: MemoryRequest
+    let onRespond: () async -> Void
+
+    @State private var responding = false
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Text("do you want to remember this?")
+                    .font(.system(size: 22, design: .serif)).foregroundStyle(c.text)
+                    .multilineTextAlignment(.center)
+                if let name = request.theirName {
+                    Text("your evening with \(name.lowercased())")
+                        .font(.mono(12)).foregroundStyle(c.muted)
+                }
+                if let biz = request.businessName {
+                    Text("at \(biz.lowercased())").font(.mono(10)).foregroundStyle(c.muted)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+
+            Text("if you both say yes, messaging opens between you. neither of you will know the other's answer until you've both responded.")
+                .font(.mono(10)).foregroundStyle(c.muted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.lg)
+
+            Spacer()
+
+            VStack(spacing: Spacing.sm) {
+                Button { Task { await respond(wants: true) } } label: {
+                    Text("yes, remember this")
+                        .font(.mono(13, weight: .medium)).foregroundStyle(c.background)
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(c.text).clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                Button { Task { await respond(wants: false) } } label: {
+                    Text("no thanks")
+                        .font(.mono(13)).foregroundStyle(c.muted)
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(c.searchBg).clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+            }
+            .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.lg)
+            .disabled(responding)
+        }
+        .background(c.background.ignoresSafeArea())
+    }
+
+    @MainActor private func respond(wants: Bool) async {
+        guard let token = Keychain.userToken else { return }
+        responding = true
+        try? await APIClient.shared.respondToMemory(id: request.id, wants: wants, token: token)
+        Haptics.impact(.medium)
+        await onRespond()
+        dismiss()
+        responding = false
+    }
+}
+
+// MARK: - Date invitation sheet
+
+private struct DateInvitationSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    let invitation: DateInvitation
+    let onRespond: () async -> Void
+
+    @State private var responding = false
+    @State private var earned = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("close") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
+                Spacer()
+                Text("dinner invitation")
+                    .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Color.clear.frame(width: 40)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    // Earned indicator
+                    if earned || !invitation.isUnopened {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12)).foregroundStyle(Color(hex: "4CAF50"))
+                            Text("CA$\(invitation.feeCents / 100) added to your account")
+                                .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50"))
+                        }
+                        .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm)
+                    }
+
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text(invitation.title.lowercased())
+                            .font(.system(size: 22, design: .serif)).foregroundStyle(c.text)
+                        if let biz = invitation.businessName {
+                            Text(biz.lowercased()).font(.mono(12)).foregroundStyle(c.muted)
+                        }
+                        if let addr = invitation.businessAddress {
+                            Text(addr.lowercased()).font(.mono(10)).foregroundStyle(c.muted)
+                        }
+                        if let desc = invitation.description {
+                            Text(desc.lowercased()).font(.mono(13)).foregroundStyle(c.muted)
+                                .lineSpacing(3).padding(.top, 4)
+                        }
+                        Label(formatDate(invitation.eventDate), systemImage: "calendar")
+                            .font(.mono(11)).foregroundStyle(c.muted)
+                        Label("meal fully covered by the business", systemImage: "fork.knife")
+                            .font(.mono(11)).foregroundStyle(c.muted)
+                    }
+                    .padding(.horizontal, Spacing.md)
+                }
+                .padding(.vertical, Spacing.md)
+            }
+
+            if invitation.isPending {
+                Divider().foregroundStyle(c.border).opacity(0.6)
+                HStack(spacing: Spacing.sm) {
+                    Button { Task { await respond(accept: false) } } label: {
+                        Text("decline")
+                            .font(.mono(12)).foregroundStyle(c.muted)
+                            .frame(maxWidth: .infinity).padding(.vertical, 14)
+                            .background(c.searchBg)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    Button { Task { await respond(accept: true) } } label: {
+                        Text("accept")
+                            .font(.mono(12, weight: .medium)).foregroundStyle(c.background)
+                            .frame(maxWidth: .infinity).padding(.vertical, 14)
+                            .background(c.text)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                .padding(Spacing.md).disabled(responding)
+            } else if invitation.isMatched {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color(hex: "4CAF50"))
+                    Text("you've been matched — see you there.")
+                        .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50"))
+                }
+                .padding(Spacing.md)
+            }
+        }
+        .background(c.background.ignoresSafeArea())
+        .task {
+            guard invitation.isUnopened, let token = Keychain.userToken else { return }
+            try? await APIClient.shared.openDateInvitation(id: invitation.id, token: token)
+            earned = true
+        }
+    }
+
+    @MainActor private func respond(accept: Bool) async {
+        guard let token = Keychain.userToken else { return }
+        responding = true
+        do {
+            if accept {
+                try await APIClient.shared.acceptDateInvitation(id: invitation.id, token: token)
+            } else {
+                try await APIClient.shared.declineDateInvitation(id: invitation.id, token: token)
+            }
+            Haptics.impact(.medium)
+            await onRespond()
+            dismiss()
+        } catch { Haptics.notification(.error) }
+        responding = false
+    }
+
+    private func formatDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
+        return date.formatted(.dateTime.weekday(.wide).month(.wide).day().hour().minute())
     }
 }
 

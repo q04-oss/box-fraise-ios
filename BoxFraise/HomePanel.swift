@@ -7,6 +7,7 @@ struct HomePanel: View {
     @State private var searchQuery = ""
     @State private var recentSearches: [String] = []
     @State private var pendingAkeneInvitation: AkeneInvitation?
+    @State private var pendingDateInvitation: DateInvitation?
 
     private var approvedPartnerCount: Int {
         state.approvedBusinesses.filter { $0.type == "partner" }.count
@@ -140,7 +141,13 @@ struct HomePanel: View {
                             .padding(.top, 12)
                         }
 
-                        if let inv = pendingAkeneInvitation {
+                        // Date night takes priority — it's time-sensitive
+                        if let inv = pendingDateInvitation {
+                            DateNightCard(invitation: inv) {
+                                state.panel = .messages
+                            }
+                            .padding(.top, 12)
+                        } else if let inv = pendingAkeneInvitation {
                             AkenePendingCard(invitation: inv) {
                                 state.panel = .akene
                             }
@@ -241,8 +248,10 @@ struct HomePanel: View {
         }
         .task {
             guard let token = Keychain.userToken else { return }
-            let invs = (try? await APIClient.shared.fetchAkeneInvitations(token: token)) ?? []
-            pendingAkeneInvitation = invs.first { $0.isPending }
+            async let akene = try? await APIClient.shared.fetchAkeneInvitations(token: token)
+            async let dates = try? await APIClient.shared.fetchDateInvitations(token: token)
+            if let v = await akene { pendingAkeneInvitation = v.first { $0.isPending } }
+            if let v = await dates { pendingDateInvitation = v.first { $0.isPending } }
         }
     }
 
@@ -292,6 +301,59 @@ private struct ActiveOrderCard: View {
                 order.status == "ready" ? Color(hex: "2196F3").opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
+    }
+}
+
+// MARK: - Date night card
+
+private struct DateNightCard: View {
+    @Environment(\.fraiseColors) private var c
+    let invitation: DateInvitation
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(c.text).frame(width: 40, height: 40)
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 14)).foregroundStyle(c.background)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("dinner invitation")
+                            .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
+                        if invitation.isUnopened {
+                            Text("earn CA$\(invitation.feeCents / 100)")
+                                .font(.mono(8)).foregroundStyle(c.background)
+                                .padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                        }
+                    }
+                    if let biz = invitation.businessName {
+                        Text(biz.lowercased())
+                            .font(.system(size: 13, design: .serif)).foregroundStyle(c.muted)
+                    }
+                    Text(formatDate(invitation.eventDate))
+                        .font(.mono(9)).foregroundStyle(c.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
+            }
+            .padding(Spacing.md)
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(c.text.opacity(0.2), lineWidth: 0.5))
+        }
+    }
+
+    private func formatDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
+        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 }
 

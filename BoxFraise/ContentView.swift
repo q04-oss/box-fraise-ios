@@ -154,6 +154,7 @@ struct ContentView: View {
             case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
             case "meet":             state.panel = state.isSignedIn ? .meet : .auth
             case "akene":            state.panel = state.isSignedIn ? .akene : .auth
+            case "offers", "memory": state.panel = state.isSignedIn ? .messages : .auth
             default:                 state.panel = .home
             }
             state.pendingScreen = nil

@@ -3,6 +3,8 @@ import SwiftUI
 struct ProfilePanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
+    @AppStorage("open_to_dates") private var openToDates: Bool = false
+    @State private var earnings: UserEarnings?
 
     var body: some View {
         ScrollView {
@@ -62,6 +64,35 @@ struct ProfilePanel: View {
                             }
                             if let streak = user.currentStreakWeeks, streak > 0 {
                                 socialRow("week \(streak)", label: "streak", icon: "flame")
+                            }
+                            if let balance = earnings?.balanceCents, balance > 0 {
+                                socialRow("CA$\(String(format: "%.2f", Double(balance) / 100))",
+                                          label: "earned", icon: "banknote")
+                            }
+                            // Date opt-in toggle
+                            HStack(spacing: 12) {
+                                Image(systemName: "fork.knife")
+                                    .font(.system(size: 13)).foregroundStyle(c.muted).frame(width: 20)
+                                Text("dates")
+                                    .font(.mono(10)).foregroundStyle(c.muted).tracking(1)
+                                    .textCase(.uppercase)
+                                    .frame(width: 64, alignment: .leading)
+                                Text(openToDates ? "open" : "off")
+                                    .font(.mono(13)).foregroundStyle(c.text)
+                                Spacer()
+                                Toggle("", isOn: $openToDates)
+                                    .labelsHidden()
+                                    .tint(c.text)
+                                    .onChange(of: openToDates) { _, val in
+                                        Task {
+                                            guard let token = Keychain.userToken else { return }
+                                            try? await APIClient.shared.setDateOptIn(val, token: token)
+                                        }
+                                    }
+                            }
+                            .padding(.horizontal, Spacing.md).padding(.vertical, 13)
+                            .overlay(alignment: .bottom) {
+                                Rectangle().frame(height: 0.5).foregroundStyle(c.border)
                             }
                         }
                         .background(c.card)
@@ -134,7 +165,11 @@ struct ProfilePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
-        .task { await state.refreshUser() }
+        .task {
+            await state.refreshUser()
+            guard let token = Keychain.userToken else { return }
+            earnings = try? await APIClient.shared.fetchEarnings(token: token)
+        }
     }
 
     private func socialRow(_ value: String, label: String, icon: String) -> some View {

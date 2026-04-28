@@ -448,6 +448,54 @@ actor APIClient {
         return r.sent
     }
 
+    // MARK: - Date nights & promotions
+
+    func fetchDateInvitations(token: String) async throws -> [DateInvitation] {
+        try await request("/dates/invitations", token: token)
+    }
+
+    func openDateInvitation(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/dates/invitations/\(id)/open", method: "POST", token: token)
+    }
+
+    func acceptDateInvitation(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/dates/invitations/\(id)/accept", method: "POST", token: token)
+    }
+
+    func declineDateInvitation(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/dates/invitations/\(id)/decline", method: "POST", token: token)
+    }
+
+    func fetchMemoryRequests(token: String) async throws -> [MemoryRequest] {
+        try await request("/dates/memory", token: token)
+    }
+
+    func respondToMemory(id: Int, wants: Bool, token: String) async throws {
+        let _: OKResponse = try await request("/dates/memory/\(id)/respond", method: "POST",
+                                               body: ["wants": wants], token: token)
+    }
+
+    func fetchPromotions(token: String) async throws -> [PromotionDelivery] {
+        try await request("/dates/promotions", token: token)
+    }
+
+    func readPromotion(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/dates/promotions/\(id)/read", method: "POST", token: token)
+    }
+
+    func fetchEarnings(token: String) async throws -> UserEarnings {
+        try await request("/dates/earnings", token: token)
+    }
+
+    func fetchBusinessDateStats(businessId: Int) async throws -> BusinessDateStats {
+        try await request("/dates/business/\(businessId)/stats")
+    }
+
+    func setDateOptIn(_ open: Bool, token: String) async throws {
+        let _: OKResponse = try await request("/dates/opt-in", method: "PATCH",
+                                               body: ["open": open], token: token)
+    }
+
     // MARK: - NFC
 
     func verifyNFC(token nfcToken: String, userToken: String) async throws -> NFCVerifyResult {

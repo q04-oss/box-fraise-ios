@@ -4,6 +4,7 @@ struct PartnerDetailPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     let business: Business
+    @State private var memoriesCount: Int?
 
     var body: some View {
         ScrollView {
@@ -25,6 +26,14 @@ struct PartnerDetailPanel: View {
                         Text(neighbourhood.lowercased())
                             .font(.mono(12))
                             .foregroundStyle(c.muted)
+                    }
+                    if let count = memoriesCount, count > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 9)).foregroundStyle(c.muted)
+                            Text("\(count) \(count == 1 ? "memory" : "memories") made here")
+                                .font(.mono(10)).foregroundStyle(c.muted)
+                        }
                     }
                 }
 
@@ -79,6 +88,11 @@ struct PartnerDetailPanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
+        }
+        .task {
+            if let id = business.locationId {
+                memoriesCount = (try? await APIClient.shared.fetchBusinessDateStats(businessId: id))?.memoriesCount
+            }
         }
     }
 
