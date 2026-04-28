@@ -428,6 +428,11 @@ actor APIClient {
         return try await request("/akene/events", method: "POST", body: body, token: token)
     }
 
+    func setAkeneEventDate(eventId: Int, eventDate: String, token: String) async throws {
+        let _: OKResponse = try await request("/akene/events/\(eventId)/set-date", method: "PATCH",
+                                               body: ["event_date": eventDate], token: token)
+    }
+
     func sendAkeneInvitations(eventId: Int, count: Int, token: String) async throws -> Int {
         struct R: Decodable { let sent: Int }
         let r: R = try await request("/akene/events/\(eventId)/invite", method: "POST",

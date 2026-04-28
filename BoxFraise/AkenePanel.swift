@@ -270,6 +270,13 @@ struct AkenePanel: View {
                 if let date = inv.eventDate {
                     Label(formatDate(date), systemImage: "calendar")
                         .font(.mono(9)).foregroundStyle(c.muted)
+                } else {
+                    Label(inv.eventStatus == "seated" ? "all seats filled · date tba"
+                                                      : "date announced when full",
+                          systemImage: "calendar.badge.clock")
+                        .font(.mono(9))
+                        .foregroundStyle(inv.eventStatus == "seated"
+                            ? Color(hex: "4CAF50") : c.muted)
                 }
                 // Seats remaining
                 let left = inv.seatsLeft
@@ -453,12 +460,21 @@ private struct EventDetailSheet: View {
                             if let date = invitation.eventDate {
                                 Label(formatDate(date), systemImage: "calendar")
                                     .font(.mono(10)).foregroundStyle(c.muted)
+                            } else {
+                                let st = detail?.status ?? invitation.eventStatus
+                                Label(st == "seated" ? "all seats filled · date tba"
+                                                     : "date announced when full",
+                                      systemImage: "calendar.badge.clock")
+                                    .font(.mono(10))
+                                    .foregroundStyle(st == "seated"
+                                        ? Color(hex: "4CAF50") : c.muted)
                             }
                             let left = detail?.seatsLeft ?? invitation.seatsLeft
                             Label("\(left) of \(invitation.capacity) seats left",
-                                  systemImage: "person.2")
+                                  systemImage: left > 0 ? "person.2" : "checkmark.circle")
                                 .font(.mono(10))
-                                .foregroundStyle(left <= 2 ? Color(hex: "C0392B") : c.muted)
+                                .foregroundStyle(left <= 0 ? Color(hex: "4CAF50")
+                                    : left <= 2 ? Color(hex: "C0392B") : c.muted)
                         }
                     }
 
@@ -649,11 +665,9 @@ private struct CreateEventSheet: View {
 
     @State private var title = ""
     @State private var description = ""
-    @State private var eventDate = Date().addingTimeInterval(7 * 86400)
     @State private var capacity = 10
     @State private var inviteCount = 20
     @State private var submitting = false
-    @State private var showDatePicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -676,27 +690,8 @@ private struct CreateEventSheet: View {
                     fraiseField("description", text: $description,
                                 placeholder: "details about the evening", multiline: true)
 
-                    // Date
-                    Button { showDatePicker.toggle() } label: {
-                        HStack {
-                            Text("date").font(.mono(10)).foregroundStyle(c.muted).tracking(1)
-                                .frame(width: 80, alignment: .leading)
-                            Text(eventDate.formatted(.dateTime.month(.wide).day().year()))
-                                .font(.mono(13)).foregroundStyle(c.text)
-                            Spacer()
-                        }
-                        .padding(.horizontal, Spacing.md).padding(.vertical, 14)
-                        .background(c.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
-                    }
-                    if showDatePicker {
-                        DatePicker("", selection: $eventDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .padding(Spacing.sm)
-                            .background(c.card)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
+                    Text("the date is announced after all seats are filled.")
+                        .font(.mono(9)).foregroundStyle(c.muted)
 
                     // Capacity
                     stepperRow("capacity", value: $capacity, range: 4...40)
@@ -712,11 +707,10 @@ private struct CreateEventSheet: View {
         guard let token = Keychain.userToken, !title.isEmpty else { return }
         submitting = true
         do {
-            let iso = ISO8601DateFormatter().string(from: eventDate)
             let event = try await APIClient.shared.createAkeneEvent(
                 title: title,
                 description: description.isEmpty ? nil : description,
-                eventDate: iso,
+                eventDate: nil,
                 capacity: capacity,
                 businessId: nil,
                 token: token
