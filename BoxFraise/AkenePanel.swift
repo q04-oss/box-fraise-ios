@@ -11,13 +11,15 @@ struct AkenePanel: View {
     @State private var loading = false
     @State private var tab: Tab = .rank
     @State private var buySheet: PaymentSheet?
+    @State private var pendingPaymentIntentId: String?
     @State private var buyQuantity = 1
+    @State private var showBuyQuantityPicker = false
     @State private var showBuySheet = false
     @State private var purchasing = false
 
     enum Tab { case rank, invitations }
 
-    private var pendingInvitations: [AkeneInvitation] { invitations.filter { $0.isPending } }
+    private var pendingCount: Int { invitations.filter { $0.isPending }.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,17 +30,14 @@ struct AkenePanel: View {
                 Text("akène")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
-                Button {
-                    guard let token = Keychain.userToken else { return }
-                    Task { await preparePurchase(token: token) }
-                } label: {
+                Button { showBuyQuantityPicker = true } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .medium))
                         Text("buy")
                             .font(.mono(11))
                     }
-                    .foregroundStyle(c.muted)
+                    .foregroundStyle(purchasing ? c.muted.opacity(0.4) : c.muted)
                 }
                 .disabled(purchasing)
             }
@@ -49,18 +48,15 @@ struct AkenePanel: View {
                 rankCard(p)
             } else if loading {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(c.card)
-                    .frame(height: 90)
+                    .fill(c.card).frame(height: 90)
                     .padding(.horizontal, Spacing.md)
-                    .shimmering()
             }
 
-            // Tab bar
+            // Tab bar — always visible
             HStack(spacing: 0) {
-                tabButton("leaderboard", selected: tab == .rank) { tab = .rank }
-                if !invitations.isEmpty {
-                    tabButton("invitations\(pendingInvitations.isEmpty ? "" : " (\(pendingInvitations.count))")",
-                              selected: tab == .invitations) { tab = .invitations }
+                tabButton("leaderboard", badge: 0, selected: tab == .rank) { tab = .rank }
+                tabButton("evenings", badge: pendingCount, selected: tab == .invitations) {
+                    tab = .invitations
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.top, Spacing.md)
@@ -72,6 +68,16 @@ struct AkenePanel: View {
             } else {
                 invitationsList
             }
+        }
+        .confirmationDialog("how many?", isPresented: $showBuyQuantityPicker) {
+            ForEach([1, 2, 3, 5], id: \.self) { qty in
+                Button("\(qty) akène · CA$\(qty * 120)") {
+                    buyQuantity = qty
+                    guard let token = Keychain.userToken else { return }
+                    Task { await preparePurchase(token: token) }
+                }
+            }
+            Button("cancel", role: .cancel) {}
         }
         .paymentSheet(isPresented: $showBuySheet, paymentSheet: buySheet ?? PaymentSheet(
             paymentIntentClientSecret: "", configuration: PaymentSheet.Configuration()
@@ -86,31 +92,31 @@ struct AkenePanel: View {
     // MARK: - Rank card
 
     private func rankCard(_ p: AkeneProfile) -> some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
                     Text("\(p.akeneHeld)")
-                        .font(.system(size: 28, design: .serif)).foregroundStyle(c.text)
+                        .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
                     Text(p.akeneHeld == 1 ? "akène" : "akènes")
                         .font(.mono(11)).foregroundStyle(c.muted)
                 }
-                Text("CA$\(p.akeneHeld * 120) invested")
-                    .font(.mono(9)).foregroundStyle(c.muted)
+                if p.eventsAttended > 0 {
+                    Text("\(p.eventsAttended) \(p.eventsAttended == 1 ? "evening" : "evenings") attended")
+                        .font(.mono(9)).foregroundStyle(c.muted)
+                } else if p.akeneHeld == 0 {
+                    Text("buy akène to appear on the leaderboard")
+                        .font(.mono(9)).foregroundStyle(c.muted)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                if let pos = p.rankPosition {
+                if let pos = p.rankPosition, p.akeneHeld > 0 {
                     Text("#\(pos)")
-                        .font(.system(size: 28, design: .serif)).foregroundStyle(c.text)
+                        .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
                     if let total = p.totalHolders {
                         Text("of \(total)")
                             .font(.mono(9)).foregroundStyle(c.muted)
                     }
-                } else {
-                    Text("—")
-                        .font(.system(size: 22, design: .serif)).foregroundStyle(c.muted)
-                    Text("no akène yet")
-                        .font(.mono(9)).foregroundStyle(c.muted)
                 }
             }
         }
@@ -126,7 +132,12 @@ struct AkenePanel: View {
     private var leaderboardList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if leaderboard.isEmpty && !loading {
+                if loading && leaderboard.isEmpty {
+                    ForEach(0..<8, id: \.self) { _ in
+                        FraiseSkeletonRow(wide: false).padding(.horizontal, Spacing.md).padding(.vertical, 10)
+                        Divider().foregroundStyle(c.border).opacity(0.4).padding(.leading, Spacing.md)
+                    }
+                } else if leaderboard.isEmpty {
                     FraiseEmptyState(icon: "chart.bar", title: "no holders yet",
                                      subtitle: "be the first to hold akène.")
                         .padding(.top, 60)
@@ -135,24 +146,24 @@ struct AkenePanel: View {
                         leaderboardRow(entry)
                         if entry.rankPosition < leaderboard.count {
                             Divider().foregroundStyle(c.border).opacity(0.4)
-                                .padding(.leading, Spacing.md)
+                                .padding(.leading, Spacing.md + 36 + 12)
                         }
                     }
                 }
             }
             .padding(.vertical, Spacing.sm)
         }
+        .refreshable { await load() }
     }
 
     private func leaderboardRow(_ entry: AkeneLeaderboardEntry) -> some View {
         HStack(spacing: 12) {
-            // Rank badge
             ZStack {
                 Circle()
                     .fill(entry.rankPosition <= 3 ? c.text : c.card)
                     .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
                     .frame(width: 36, height: 36)
-                Text("#\(entry.rankPosition)")
+                Text("\(entry.rankPosition)")
                     .font(.mono(10, weight: .medium))
                     .foregroundStyle(entry.rankPosition <= 3 ? c.background : c.muted)
             }
@@ -161,17 +172,20 @@ struct AkenePanel: View {
                 Text(entry.displayName?.lowercased() ?? "member")
                     .font(.mono(13)).foregroundStyle(c.text)
                 HStack(spacing: 8) {
-                    Label("\(entry.akeneHeld) akène", systemImage: "leaf")
+                    Text("\(entry.akeneHeld) akène")
                         .font(.mono(9)).foregroundStyle(c.muted)
-                    Label("\(entry.eventsAttended) evenings", systemImage: "fork.knife")
-                        .font(.mono(9)).foregroundStyle(c.muted)
+                    if entry.eventsAttended > 0 {
+                        Text("· \(entry.eventsAttended) \(entry.eventsAttended == 1 ? "evening" : "evenings")")
+                            .font(.mono(9)).foregroundStyle(c.muted)
+                    }
                 }
             }
 
             Spacer()
 
-            Text("\(entry.rankScore)")
-                .font(.mono(11)).foregroundStyle(c.muted)
+            // Show days of holding rather than a raw score
+            Text("\(daysHeld(entry.rankScore, held: entry.akeneHeld))d")
+                .font(.mono(10)).foregroundStyle(c.muted)
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 12)
     }
@@ -181,9 +195,9 @@ struct AkenePanel: View {
     private var invitationsList: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.sm) {
-                if invitations.isEmpty {
-                    FraiseEmptyState(icon: "envelope", title: "no invitations",
-                                     subtitle: "hold akène to receive evening invitations.")
+                if invitations.isEmpty && !loading {
+                    FraiseEmptyState(icon: "envelope", title: "no evenings yet",
+                                     subtitle: "hold akène to receive evening invitations from businesses.")
                         .padding(.top, 60)
                 } else {
                     ForEach(invitations) { inv in
@@ -193,11 +207,12 @@ struct AkenePanel: View {
             }
             .padding(Spacing.md)
         }
+        .refreshable { await load() }
     }
 
     private func invitationCard(_ inv: AkeneInvitation) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(inv.title.lowercased())
                         .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
@@ -221,24 +236,20 @@ struct AkenePanel: View {
                     Label(formatDate(date), systemImage: "calendar")
                         .font(.mono(9)).foregroundStyle(c.muted)
                 }
-                Label("\(inv.capacity) capacity", systemImage: "person.2")
+                Label("\(inv.capacity) seats", systemImage: "person.2")
                     .font(.mono(9)).foregroundStyle(c.muted)
             }
 
             if inv.isPending {
                 HStack(spacing: Spacing.sm) {
-                    Button {
-                        Task { await respond(inv.id, accept: false) }
-                    } label: {
+                    Button { Task { await respond(inv.id, accept: false) } } label: {
                         Text("decline")
                             .font(.mono(12)).foregroundStyle(c.muted)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                             .background(c.searchBg)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
-                    Button {
-                        Task { await respond(inv.id, accept: true) }
-                    } label: {
+                    Button { Task { await respond(inv.id, accept: true) } } label: {
                         Text("accept")
                             .font(.mono(12, weight: .medium)).foregroundStyle(c.background)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
@@ -252,18 +263,19 @@ struct AkenePanel: View {
         .background(c.card)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-            inv.isPending ? c.text.opacity(0.2) : c.border, lineWidth: 0.5))
+            inv.isPending ? c.text.opacity(0.25) : c.border, lineWidth: 0.5))
     }
 
     private func statusPill(_ status: String) -> some View {
-        let color: Color = status == "accepted" ? Color(hex: "4CAF50")
-                         : status == "declined"  ? c.muted
-                         : c.text
-        return Text(status)
-            .font(.mono(8)).foregroundStyle(status == "pending" ? c.background : color)
+        let (label, fg, bg): (String, Color, Color) = switch status {
+        case "accepted": ("accepted", Color(hex: "4CAF50"), Color(hex: "4CAF50").opacity(0.12))
+        case "declined": ("declined", c.muted,             c.searchBg)
+        default:         ("invited",  c.background,        c.text)
+        }
+        return Text(label)
+            .font(.mono(8)).foregroundStyle(fg)
             .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(status == "pending" ? c.text : color.opacity(0.12))
-            .clipShape(Capsule())
+            .background(bg).clipShape(Capsule())
     }
 
     // MARK: - Actions
@@ -284,6 +296,7 @@ struct AkenePanel: View {
         purchasing = true
         do {
             let resp = try await APIClient.shared.purchaseAkene(quantity: buyQuantity, token: token)
+            pendingPaymentIntentId = extractPaymentIntentId(resp.clientSecret)
             var config = PaymentSheet.Configuration()
             config.merchantDisplayName = "Box Fraise"
             config.defaultBillingDetails.address.country = "CA"
@@ -297,10 +310,9 @@ struct AkenePanel: View {
 
     @MainActor private func handlePurchaseComplete() async {
         guard let token = Keychain.userToken,
-              let pi = buySheet else { return }
-        // Extract PI id from the PaymentSheet config — Stripe stores it in the client secret
-        let piId = String(pi.configuration.merchantDisplayName) // placeholder; use stored PI id
+              let piId = pendingPaymentIntentId else { return }
         try? await APIClient.shared.confirmAkenePurchase(paymentIntentId: piId, token: token)
+        pendingPaymentIntentId = nil
         Haptics.impact(.medium)
         await load()
     }
@@ -322,18 +334,37 @@ struct AkenePanel: View {
 
     // MARK: - Helpers
 
-    private func tabButton(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func tabButton(_ label: String, badge: Int, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                Text(label)
-                    .font(.mono(11, weight: selected ? .medium : .regular))
-                    .foregroundStyle(selected ? c.text : c.muted)
+                HStack(spacing: 5) {
+                    Text(label)
+                        .font(.mono(11, weight: selected ? .medium : .regular))
+                        .foregroundStyle(selected ? c.text : c.muted)
+                    if badge > 0 {
+                        Text("\(badge)")
+                            .font(.mono(8)).foregroundStyle(c.background)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(c.text).clipShape(Capsule())
+                    }
+                }
                 Rectangle()
                     .fill(selected ? c.text : Color.clear)
                     .frame(height: 1)
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // rank_score = time_score × multiplier; reverse-engineer avg days held
+    private func daysHeld(_ score: Int, held: Int) -> Int {
+        guard held > 0 else { return 0 }
+        return Int(Double(score) / Double(held))
+    }
+
+    // Stripe client secrets are formatted as "pi_xxx_secret_yyy" — extract "pi_xxx"
+    private func extractPaymentIntentId(_ clientSecret: String) -> String {
+        String(clientSecret.split(separator: "_secret_").first ?? Substring(clientSecret))
     }
 
     private func formatDate(_ iso: String) -> String {
