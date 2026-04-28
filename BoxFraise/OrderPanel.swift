@@ -294,10 +294,10 @@ struct OrderPanel: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             // Checkmark
             ZStack {
-                Circle().fill(Color(hex: "1C1C1E")).frame(width: 52, height: 52)
+                Circle().fill(c.text).frame(width: 52, height: 52)
                 Image(systemName: "checkmark")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(c.background)
             }
 
             VStack(alignment: .leading, spacing: 6) {

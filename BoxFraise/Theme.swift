@@ -104,6 +104,34 @@ enum Haptics {
 
 // MARK: - Shared UI components
 
+struct FraiseEmptyState: View {
+    @Environment(\.fraiseColors) private var c
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 28))
+                .foregroundStyle(c.border)
+            Text(title)
+                .font(.system(.subheadline, design: .serif))
+                .foregroundStyle(c.muted)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.mono(11))
+                    .foregroundStyle(c.border)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .padding(.horizontal, Spacing.lg)
+    }
+}
+
 struct FraiseBackButton: View {
     @Environment(\.fraiseColors) private var c
     let label: String

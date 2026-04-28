@@ -12,14 +12,15 @@ struct PopupsPanel: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 FraiseBackButton { state.panel = .home }
 
-                Text("popups")
-                    .font(.system(size: 28, design: .serif))
-                    .foregroundStyle(c.text)
-
-                Text("pay to join · date set once threshold is met")
-                    .font(.mono(10))
-                    .foregroundStyle(c.muted)
-                    .tracking(0.5)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("popups")
+                        .font(.system(size: 28, design: .serif))
+                        .foregroundStyle(c.text)
+                    Text("pay to join · date confirmed once threshold is met")
+                        .font(.mono(10))
+                        .foregroundStyle(c.muted)
+                        .tracking(0.3)
+                }
 
                 if let err = error {
                     Text(err)
@@ -29,11 +30,11 @@ struct PopupsPanel: View {
                 }
 
                 if state.popups.isEmpty {
-                    Text("no popups open right now")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
+                    FraiseEmptyState(
+                        icon: "calendar.badge.clock",
+                        title: "nothing scheduled yet",
+                        subtitle: "new popups will appear here when they open for registration."
+                    )
                 } else {
                     ForEach(state.popups) { popup in
                         PopupCard(popup: popup, joining: $joining, error: $error)
@@ -57,114 +58,151 @@ struct PopupCard: View {
     @Binding var error: String?
     @State private var paymentSheet: PaymentSheet?
 
-    private var badgeColor: Color {
-        if popup.isConfirmed   { return Color(hex: "388E3C") }
+    private var statusColor: Color {
+        if popup.isConfirmed    { return Color(hex: "388E3C") }
         if popup.isThresholdMet { return Color(hex: "F57F17") }
         return c.muted
     }
 
-    private var badgeLabel: String {
+    private var statusLabel: String {
         if popup.isConfirmed    { return "scheduled" }
         if popup.isThresholdMet { return "going ahead" }
         return "open"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(popup.businessName)
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Header ────────────────────────────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(popup.businessName.lowercased())
+                            .font(.mono(9))
+                            .foregroundStyle(c.muted)
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                        Text(popup.title.lowercased())
+                            .font(.system(size: 18, design: .serif))
+                            .foregroundStyle(c.text)
+                    }
+                    Spacer()
+                    Text(statusLabel)
                         .font(.mono(9))
+                        .foregroundStyle(statusColor)
+                        .tracking(0.5)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(statusColor.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+
+                if let desc = popup.description {
+                    Text(desc.lowercased())
+                        .font(.mono(12))
                         .foregroundStyle(c.muted)
-                        .tracking(1.5)
-                        .textCase(.uppercase)
-                    Text(popup.title)
-                        .font(.system(size: 16, design: .serif))
-                        .foregroundStyle(c.text)
+                        .lineSpacing(3)
+                        .lineLimit(3)
                 }
-                Spacer()
-                Text(badgeLabel)
-                    .font(.mono(9))
-                    .foregroundStyle(badgeColor)
-                    .tracking(0.5)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(badgeColor.opacity(0.1))
-                    .clipShape(Capsule())
-            }
 
-            if let desc = popup.description {
-                Text(desc)
-                    .font(.mono(12))
-                    .foregroundStyle(c.muted)
-                    .lineLimit(3)
-            }
-
-            if popup.isConfirmed, let date = popup.eventDate {
-                Text(date)
-                    .font(.mono(12))
-                    .foregroundStyle(Color(hex: "388E3C"))
-            }
-
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(c.searchBg)
-                        .frame(height: 3)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(popup.isThresholdMet || popup.isConfirmed ? Color(hex: "4CAF50") : c.text)
-                        .frame(width: geo.size.width * popup.thresholdPct, height: 3)
-                }
-            }
-            .frame(height: 3)
-
-            Text("\(popup.seatsClaimed) of \(popup.minSeats) needed · \(popup.seatsClaimed)/\(popup.maxSeats) joined")
-                .font(.mono(10))
-                .foregroundStyle(c.muted)
-
-            HStack {
-                Text(popup.priceFormatted + " per person")
-                    .font(.mono(13))
-                    .foregroundStyle(c.text)
-                Spacer()
-                if popup.isOpen && popup.seatsClaimed < popup.maxSeats {
-                    if let sheet = paymentSheet {
-                        PaymentSheet.PaymentButton(paymentSheet: sheet) { result in
-                            handlePayment(result)
-                        } label: {
-                            joinLabel
-                        }
-                    } else {
-                        Button {
-                            guard state.isSignedIn else { state.panel = .auth; return }
-                            Task { await prepareJoin() }
-                        } label: {
-                            joinLabel
-                        }
-                        .disabled(joining == popup.id)
+                if popup.isConfirmed, let date = popup.eventDate {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color(hex: "388E3C"))
+                        Text(date)
+                            .font(.mono(11))
+                            .foregroundStyle(Color(hex: "388E3C"))
                     }
                 }
             }
+            .padding(Spacing.md)
+
+            // ── Progress ──────────────────────────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(c.searchBg).frame(height: 4)
+                        Capsule()
+                            .fill(popup.isThresholdMet || popup.isConfirmed
+                                  ? Color(hex: "4CAF50") : c.text)
+                            .frame(width: geo.size.width * popup.thresholdPct, height: 4)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: popup.thresholdPct)
+                    }
+                }
+                .frame(height: 4)
+
+                HStack {
+                    Text("\(popup.seatsClaimed) of \(popup.minSeats) needed")
+                        .font(.mono(10)).foregroundStyle(c.muted)
+                    Spacer()
+                    Text("\(popup.maxSeats - popup.seatsClaimed) spots left")
+                        .font(.mono(10)).foregroundStyle(c.muted)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.bottom, Spacing.md)
+
+            // ── CTA ───────────────────────────────────────────────────────────
+            if popup.isOpen && popup.seatsClaimed < popup.maxSeats {
+                Divider().foregroundStyle(c.border).opacity(0.6)
+
+                if let sheet = paymentSheet {
+                    PaymentSheet.PaymentButton(paymentSheet: sheet) { result in
+                        handlePayment(result)
+                    } label: { joinButton }
+                } else {
+                    Button {
+                        guard state.isSignedIn else { state.panel = .auth; return }
+                        Task { await prepareJoin() }
+                    } label: { joinButton }
+                    .disabled(joining == popup.id)
+                }
+            } else if popup.isConfirmed {
+                Divider().foregroundStyle(c.border).opacity(0.6)
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(hex: "388E3C"))
+                    Text("you're in")
+                        .font(.mono(12))
+                        .foregroundStyle(Color(hex: "388E3C"))
+                    Spacer()
+                    Text(popup.priceFormatted)
+                        .font(.mono(12))
+                        .foregroundStyle(c.muted)
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 14)
+            }
         }
-        .padding(Spacing.md)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(c.border, lineWidth: 0.5))
     }
 
-    private var joinLabel: some View {
-        Text(joining == popup.id ? "—" : "join · \(popup.priceFormatted)")
-            .font(.mono(12))
-            .foregroundStyle(c.background)
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(c.text)
-            .clipShape(Capsule())
+    private var joinButton: some View {
+        HStack {
+            Text(joining == popup.id ? "—" : "join")
+                .font(.mono(13, weight: .medium))
+                .foregroundStyle(.white)
+            Spacer()
+            if joining != popup.id {
+                Text(popup.priceFormatted)
+                    .font(.mono(12))
+                    .foregroundStyle(.white.opacity(0.7))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 14)
+        .background(c.text)
     }
 
     @MainActor private func prepareJoin() async {
         guard let token = Keychain.userToken else { return }
-        joining = popup.id
-        error = nil
+        joining = popup.id; error = nil
         defer { if paymentSheet == nil { joining = nil } }
         do {
             let response = try await APIClient.shared.joinPopup(id: popup.id, token: token)
@@ -173,14 +211,12 @@ struct PopupCard: View {
             config.applePay = .init(merchantId: "merchant.com.boxfraise.app", merchantCountryCode: "CA")
             paymentSheet = PaymentSheet(paymentIntentClientSecret: response.clientSecret, configuration: config)
         } catch {
-            self.error = error.localizedDescription
-            joining = nil
+            self.error = error.localizedDescription; joining = nil
         }
     }
 
     @MainActor private func handlePayment(_ result: PaymentSheetResult) {
-        paymentSheet = nil
-        joining = nil
+        paymentSheet = nil; joining = nil
         switch result {
         case .completed:
             Haptics.notification(.success)
@@ -189,14 +225,12 @@ struct PopupCard: View {
                 do {
                     try await APIClient.shared.confirmPopupJoin(id: popup.id, token: token)
                     await state.refresh()
-                } catch {
-                    self.error = error.localizedDescription
-                }
+                } catch { self.error = error.localizedDescription }
             }
         case .failed(let e):
+            Haptics.notification(.error)
             error = e.localizedDescription
-        case .canceled:
-            break
+        case .canceled: break
         }
     }
 }

@@ -39,11 +39,11 @@ struct OrderHistoryPanel: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(Spacing.md)
             } else if state.orderHistory.isEmpty {
-                VStack {
-                    Text("no orders yet")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseEmptyState(
+                    icon: "bag",
+                    title: "no orders yet",
+                    subtitle: "your box fraise orders will appear here after your first purchase."
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {

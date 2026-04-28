@@ -120,34 +120,32 @@ struct ContentView: View {
 // MARK: - Business Pin
 
 struct BusinessPin: View {
+    @Environment(\.fraiseColors) private var c
     let approved: Bool
     let isCollection: Bool
 
     var body: some View {
         if approved && isCollection {
-            // Large two-tone teardrop — primary destination
             Teardrop()
-                .fill(Color(hex: "1C1C1E"))
+                .fill(c.text)
                 .frame(width: 22, height: 28)
                 .overlay {
                     Circle()
-                        .fill(Color.white)
+                        .fill(c.background)
                         .frame(width: 7, height: 7)
                         .offset(y: -3)
                 }
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
         } else if approved {
-            // Medium outlined teardrop — approved partner
             Teardrop()
-                .stroke(Color(hex: "1C1C1E"), lineWidth: 1.5)
-                .background(Teardrop().fill(Color.white))
+                .stroke(c.text, lineWidth: 1.5)
+                .background(Teardrop().fill(c.background))
                 .frame(width: 16, height: 20)
                 .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
         } else {
-            // Small outlined teardrop — unapproved/example
             Teardrop()
-                .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                .background(Teardrop().fill(Color.white.opacity(0.7)))
+                .stroke(c.muted.opacity(0.4), lineWidth: 1)
+                .background(Teardrop().fill(c.background.opacity(0.7)))
                 .frame(width: 13, height: 17)
         }
     }
