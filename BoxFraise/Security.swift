@@ -4,6 +4,7 @@ import Darwin.sys.ptrace
 import MachO
 import UIKit
 import CryptoKit
+import os
 
 // MARK: - App security checks
 
@@ -11,23 +12,27 @@ enum AppSecurity {
 
     // MARK: - Jailbreak detection
 
-    private static var _jailbreakCached: Bool?
+    // OSAllocatedUnfairLock serialises the write-once cache without a dedicated queue.
+    // State is Bool? — nil means unchecked, non-nil is the cached result.
+    private static let _jailbreakLock = OSAllocatedUnfairLock<Bool?>(initialState: nil)
 
     static func isJailbroken() -> Bool {
-        if let cached = _jailbreakCached { return cached }
-        #if targetEnvironment(simulator)
-        _jailbreakCached = false
-        return false
-        #else
-        let result = hasJailbreakFiles()
-            || canWriteOutsideSandbox()
-            || hasSuspiciousURLSchemes()
-            || hasDynamicLibraryInjection()
-            || hasInjectedDylibs()
-            || hasFridaServer()
-        _jailbreakCached = result
-        return result
-        #endif
+        _jailbreakLock.withLock { cached -> Bool in
+            if let v = cached { return v }
+            #if targetEnvironment(simulator)
+            cached = false
+            return false
+            #else
+            let result = hasJailbreakFiles()
+                || canWriteOutsideSandbox()
+                || hasSuspiciousURLSchemes()
+                || hasDynamicLibraryInjection()
+                || hasInjectedDylibs()
+                || hasFridaServer()
+            cached = result
+            return result
+            #endif
+        }
     }
 
     private static func hasJailbreakFiles() -> Bool {

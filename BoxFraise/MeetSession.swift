@@ -35,8 +35,9 @@ final class MeetSession: NSObject {
     func start(token: String) {
         myToken = token
         state = .starting
-        peripheral = CBPeripheralManager(delegate: self, queue: .global(qos: .userInitiated))
-        central    = CBCentralManager(delegate: self, queue: .global(qos: .userInitiated))
+        // queue: nil → delegates called on main queue, keeping all state mutations on main thread.
+        peripheral = CBPeripheralManager(delegate: self, queue: nil)
+        central    = CBCentralManager(delegate: self, queue: nil)
     }
 
     func stop() {
@@ -47,7 +48,7 @@ final class MeetSession: NSObject {
         peripheral = nil
         central    = nil
         discovered = [:]
-        Task { @MainActor in state = .idle }
+        state = .idle
     }
 }
 
@@ -92,7 +93,7 @@ extension MeetSession: CBCentralManagerDelegate {
         guard cm.state == .poweredOn else { return }
         cm.scanForPeripherals(withServices: [Self.serviceUUID],
                               options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
-        Task { @MainActor in state = .scanning }
+        state = .scanning
     }
 
     func centralManager(_ cm: CBCentralManager, didDiscover peripheral: CBPeripheral,
@@ -136,7 +137,6 @@ extension MeetSession: CBPeripheralDelegate {
 
         central?.cancelPeripheralConnection(p)
         central?.stopScan()
-
-        Task { @MainActor in state = .found(token: token) }
+        state = .found(token: token)
     }
 }
