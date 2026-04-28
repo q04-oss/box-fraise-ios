@@ -210,6 +210,28 @@ actor APIClient {
             body: ["rating": rating], token: token)
     }
 
+    // MARK: - Standing orders
+
+    func fetchStandingOrders(token: String) async throws -> [StandingOrder] {
+        try await request("/users/me/standing-orders", token: token)
+    }
+
+    func createStandingOrder(varietyId: Int, locationId: Int, quantity: Int,
+                             chocolate: String, finish: String, token: String) async throws -> StandingOrder {
+        try await request("/users/me/standing-orders", method: "POST", body: [
+            "variety_id":  varietyId,
+            "location_id": locationId,
+            "quantity":    quantity,
+            "chocolate":   chocolate,
+            "finish":      finish,
+        ], token: token)
+    }
+
+    func updateStandingOrder(id: Int, status: String, token: String) async throws {
+        let _: OKResponse = try await request("/users/me/standing-orders/\(id)", method: "PATCH",
+            body: ["status": status], token: token)
+    }
+
     // MARK: - NFC
 
     func verifyNFC(token nfcToken: String, userToken: String) async throws -> NFCVerifyResult {

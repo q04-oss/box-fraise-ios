@@ -261,6 +261,7 @@ struct SheetContent: View {
         case .staff:               return "staff"
         case .nfcVerify:           return "nfcVerify"
         case .walkIn:              return "walkIn"
+        case .standingOrders:      return "standingOrders"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
         }
     }
@@ -291,6 +292,7 @@ struct SheetContent: View {
         case .staff:               StaffPanel()
         case .nfcVerify:           NFCVerifyPanel()
         case .walkIn:              WalkInPanel()
+        case .standingOrders:      StandingOrdersPanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
         }
     }

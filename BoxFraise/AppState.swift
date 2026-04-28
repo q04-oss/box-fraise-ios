@@ -56,6 +56,7 @@ final class AppState {
     var isSignedIn: Bool { user != nil }
     var approvedBusinesses: [Business] { businesses.filter { $0.isApproved && $0.coordinate != nil } }
     var unapprovedBusinesses: [Business] { businesses.filter { !$0.isApproved && $0.coordinate != nil } }
+    var activeOrder: PastOrder? { orderHistory.first { $0.isPaid } }
 
     var nearestCollection: Business? {
         guard let userLoc = userLocation else {
@@ -99,10 +100,10 @@ final class AppState {
         if let v = await vars { varieties = v.filter { $0.active ?? true } }
 
         guard let token = Keychain.userToken else { return }
-        if let me = try? await APIClient.shared.fetchMe(token: token) {
-            user = me
-            persist(user: me)
-        }
+        async let me   = try? await APIClient.shared.fetchMe(token: token)
+        async let hist = try? await APIClient.shared.fetchOrderHistory(token: token)
+        if let u = await me   { user = u; persist(user: u) }
+        if let h = await hist { orderHistory = h }
     }
 
     // MARK: - Auth

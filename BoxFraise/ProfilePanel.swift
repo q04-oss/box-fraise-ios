@@ -66,6 +66,11 @@ struct ProfilePanel: View {
                         profileLink("verify pickup", icon: "checkmark.seal") {
                             state.panel = .nfcVerify
                         }
+                        if user.verified == true {
+                            profileLink("standing orders", icon: "arrow.clockwise.circle") {
+                                state.panel = .standingOrders
+                            }
+                        }
                         if user.isShop == true {
                             profileLink("staff orders", icon: "person.badge.key") {
                                 state.panel = .staff

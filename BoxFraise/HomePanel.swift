@@ -132,6 +132,13 @@ struct HomePanel: View {
                         }
                         .padding(.top, 2)
 
+                        if let active = state.activeOrder {
+                            ActiveOrderCard(order: active) {
+                                state.panel = .orderHistory
+                            }
+                            .padding(.top, 12)
+                        }
+
                         if state.businesses.isEmpty {
                             VStack(spacing: 10) {
                                 FraiseSkeletonRow(wide: true)
@@ -234,6 +241,43 @@ struct HomePanel: View {
         if list.count > 3 { list = Array(list.prefix(3)) }
         UserDefaults.standard.set(list, forKey: "recentSearches")
         recentSearches = list
+    }
+}
+
+// MARK: - Active Order Card
+
+private struct ActiveOrderCard: View {
+    @Environment(\.fraiseColors) private var c
+    let order: PastOrder
+    let action: () -> Void
+
+    private var statusColor: Color {
+        order.status == "ready" ? Color(hex: "2196F3") : c.muted
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.md) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(statusColor).frame(width: 3)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(order.varietyName.lowercased())
+                        .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
+                    Text(order.status == "ready" ? "ready for collection" : "paid · awaiting batch")
+                        .font(.mono(10)).foregroundStyle(statusColor)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
+            }
+            .padding(Spacing.md)
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+                order.status == "ready" ? Color(hex: "2196F3").opacity(0.4) : c.border,
+                lineWidth: 0.5))
+        }
     }
 }
 

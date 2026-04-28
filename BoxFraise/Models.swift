@@ -255,10 +255,24 @@ struct WalkInItem: Codable, Identifiable, PricedItem {
     let stockRemaining: Int?
 }
 
+// MARK: - Standing orders
+
+struct StandingOrder: Codable, Identifiable {
+    let id: Int
+    let varietyName: String?
+    let locationName: String?
+    let quantity: Int
+    let chocolate: String
+    let finish: String
+    let status: String
+
+    var isActive: Bool { status == "active" }
+}
+
 // MARK: - Panel
 
 enum Panel: Equatable {
-    case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
+    case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn, standingOrders
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
@@ -266,7 +280,8 @@ enum Panel: Equatable {
         case (.home, .home), (.auth, .auth), (.profile, .profile),
              (.popups, .popups), (.order, .order),
              (.orderHistory, .orderHistory), (.staff, .staff),
-             (.nfcVerify, .nfcVerify), (.walkIn, .walkIn): return true
+             (.nfcVerify, .nfcVerify), (.walkIn, .walkIn),
+             (.standingOrders, .standingOrders): return true
         case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id
         default: return false
         }

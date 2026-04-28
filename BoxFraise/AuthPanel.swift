@@ -16,7 +16,7 @@ struct AuthPanel: View {
                     .font(.system(size: 28, design: .serif))
                     .foregroundStyle(c.text)
 
-                Text("curated strawberry boxes from local farms, available at partner locations across the city.")
+                Text("chocolate-covered strawberries, made with a local chocolatier and available at nodes across the city.")
                     .font(.mono(12))
                     .foregroundStyle(c.muted)
                     .lineSpacing(4)
@@ -24,10 +24,12 @@ struct AuthPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            Text("sign in to order, join popups, and verify your pickup.")
-                .font(.mono(11))
-                .foregroundStyle(c.muted)
-                .lineSpacing(3)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("order at any node — we deliver fresh when your batch reaches threshold.")
+                    .font(.mono(11)).foregroundStyle(c.muted).lineSpacing(3)
+                Text("your first pickup verifies your identity and unlocks standing orders.")
+                    .font(.mono(11)).foregroundStyle(c.muted).lineSpacing(3)
+            }
 
             if let error {
                 Text(error)

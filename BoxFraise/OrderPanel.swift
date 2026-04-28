@@ -352,6 +352,15 @@ struct OrderPanel: View {
             Text("you'll receive a notification when your box is ready.")
                 .font(.mono(12)).foregroundStyle(c.muted).lineSpacing(4)
 
+            if let date = state.confirmedOrder?.deliveryDate {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10)).foregroundStyle(Color(hex: "4CAF50"))
+                    Text("delivery \(date)")
+                        .font(.mono(10)).foregroundStyle(Color(hex: "4CAF50"))
+                }
+            }
+
             if let confirmed = state.confirmedOrder,
                let queued = confirmed.queuedBoxes,
                let minQ = confirmed.minQuantity, minQ > 0 {
