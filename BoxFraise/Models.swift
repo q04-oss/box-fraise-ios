@@ -409,16 +409,51 @@ struct AkeneInvitation: Codable, Identifiable {
     let id: Int
     let status: String
     let sentAt: String
+    let expiresAt: String?
     let respondedAt: String?
     let eventId: Int
     let title: String
     let description: String?
     let eventDate: String?
     let capacity: Int
+    let acceptedCount: Int?
     let eventStatus: String
     let businessName: String?
 
     var isPending: Bool { status == "pending" }
+    var seatsLeft: Int { capacity - (acceptedCount ?? 0) }
+    var isFull: Bool { seatsLeft <= 0 }
+}
+
+struct AkeneEventDetail: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let description: String?
+    let eventDate: String?
+    let capacity: Int
+    let acceptedCount: Int
+    let status: String
+    let businessName: String?
+
+    var seatsLeft: Int { capacity - acceptedCount }
+    var isFull: Bool { seatsLeft <= 0 }
+}
+
+struct AkeneAttendee: Codable, Identifiable {
+    let id: Int
+    let displayName: String?
+    let akeneHeld: Int
+    let eventsAttended: Int
+    let rankPosition: Int
+}
+
+struct AkeneHolderProfile: Codable {
+    let displayName: String?
+    let akeneHeld: Int
+    let eventsAttended: Int
+    let rankScore: Int
+    let rankPosition: Int
+    let totalHolders: Int?
 }
 
 struct AkenePurchaseResponse: Codable {

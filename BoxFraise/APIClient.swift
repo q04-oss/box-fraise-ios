@@ -396,12 +396,43 @@ actor APIClient {
         try await request("/akene/invitations", token: token)
     }
 
-    func acceptAkeneInvitation(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/akene/invitations/\(id)/accept", method: "POST", token: token)
+    struct AcceptInvitationResponse: Decodable { let ok: Bool?; let waitlisted: Bool? }
+    func acceptAkeneInvitation(id: Int, token: String) async throws -> Bool {
+        let r: AcceptInvitationResponse = try await request("/akene/invitations/\(id)/accept",
+                                                            method: "POST", token: token)
+        return r.waitlisted ?? false
     }
 
     func declineAkeneInvitation(id: Int, token: String) async throws {
         let _: OKResponse = try await request("/akene/invitations/\(id)/decline", method: "POST", token: token)
+    }
+
+    func fetchAkeneEventDetail(id: Int, token: String) async throws -> AkeneEventDetail {
+        try await request("/akene/events/\(id)", token: token)
+    }
+
+    func fetchAkeneAttendees(eventId: Int, token: String) async throws -> [AkeneAttendee] {
+        try await request("/akene/events/\(eventId)/attendees", token: token)
+    }
+
+    func fetchAkeneHolderProfile(userId: Int, token: String) async throws -> AkeneHolderProfile {
+        try await request("/akene/holders/\(userId)", token: token)
+    }
+
+    func createAkeneEvent(title: String, description: String?, eventDate: String?,
+                          capacity: Int, businessId: Int?, token: String) async throws -> AkeneEventDetail {
+        var body: [String: Any] = ["title": title, "capacity": capacity]
+        if let d = description { body["description"] = d }
+        if let dt = eventDate  { body["event_date"]  = dt }
+        if let bid = businessId { body["business_id"] = bid }
+        return try await request("/akene/events", method: "POST", body: body, token: token)
+    }
+
+    func sendAkeneInvitations(eventId: Int, count: Int, token: String) async throws -> Int {
+        struct R: Decodable { let sent: Int }
+        let r: R = try await request("/akene/events/\(eventId)/invite", method: "POST",
+                                      body: ["count": count], token: token)
+        return r.sent
     }
 
     // MARK: - NFC
