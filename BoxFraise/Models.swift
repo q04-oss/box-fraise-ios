@@ -385,11 +385,53 @@ struct StandingOrder: Codable, Identifiable {
     var isActive: Bool { status == "active" }
 }
 
+// MARK: - Akène
+
+struct AkeneProfile: Codable {
+    let akeneHeld: Int
+    let eventsAttended: Int
+    let rankScore: Int
+    let rankPosition: Int?
+    let totalHolders: Int?
+}
+
+struct AkeneLeaderboardEntry: Codable, Identifiable {
+    let displayName: String?
+    let akeneHeld: Int
+    let eventsAttended: Int
+    let rankScore: Int
+    let rankPosition: Int
+
+    var id: Int { rankPosition }
+}
+
+struct AkeneInvitation: Codable, Identifiable {
+    let id: Int
+    let status: String
+    let sentAt: String
+    let respondedAt: String?
+    let eventId: Int
+    let title: String
+    let description: String?
+    let eventDate: String?
+    let capacity: Int
+    let eventStatus: String
+    let businessName: String?
+
+    var isPending: Bool { status == "pending" }
+}
+
+struct AkenePurchaseResponse: Codable {
+    let clientSecret: String
+    let quantity: Int
+    let amountCents: Int
+}
+
 // MARK: - Panel
 
 enum Panel: Equatable {
     case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
-    case standingOrders, messages, referrals, meet
+    case standingOrders, messages, referrals, meet, akene
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
@@ -401,7 +443,8 @@ enum Panel: Equatable {
              (.standingOrders, .standingOrders),
              (.messages, .messages),
              (.referrals, .referrals),
-             (.meet, .meet): return true
+             (.meet, .meet),
+             (.akene, .akene): return true
         case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id
         default: return false
         }

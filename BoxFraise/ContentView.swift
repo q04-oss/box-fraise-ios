@@ -153,6 +153,7 @@ struct ContentView: View {
             case "messages":         state.panel = state.isSignedIn ? .messages : .auth
             case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
             case "meet":             state.panel = state.isSignedIn ? .meet : .auth
+            case "akene":            state.panel = state.isSignedIn ? .akene : .auth
             default:                 state.panel = .home
             }
             state.pendingScreen = nil
@@ -270,6 +271,7 @@ struct SheetContent: View {
         case .messages:            return "messages"
         case .referrals:           return "referrals"
         case .meet:                return "meet"
+        case .akene:               return "akene"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
         }
     }
@@ -304,6 +306,7 @@ struct SheetContent: View {
         case .messages:            MessagesPanel()
         case .referrals:           ReferralsPanel()
         case .meet:                MeetPanel()
+        case .akene:               AkenePanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
         }
     }

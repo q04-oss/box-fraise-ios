@@ -71,6 +71,9 @@ struct ProfilePanel: View {
 
                     // ── Links ─────────────────────────────────────────────────
                     VStack(spacing: 0) {
+                        profileLink("akène", icon: "leaf") {
+                            state.panel = .akene
+                        }
                         profileLink("order history", icon: "clock.arrow.circlepath") {
                             state.panel = .orderHistory
                         }

@@ -373,6 +373,37 @@ actor APIClient {
             body: ["status": status], token: token)
     }
 
+    // MARK: - Akène
+
+    func fetchAkeneProfile(token: String) async throws -> AkeneProfile {
+        try await request("/akene/my", token: token)
+    }
+
+    func fetchAkeneLeaderboard(token: String) async throws -> [AkeneLeaderboardEntry] {
+        try await request("/akene/leaderboard", token: token)
+    }
+
+    func purchaseAkene(quantity: Int, token: String) async throws -> AkenePurchaseResponse {
+        try await request("/akene/purchase", method: "POST", body: ["quantity": quantity], token: token)
+    }
+
+    func confirmAkenePurchase(paymentIntentId: String, token: String) async throws {
+        let _: OKResponse = try await request("/akene/purchase/confirm", method: "POST",
+                                               body: ["payment_intent_id": paymentIntentId], token: token)
+    }
+
+    func fetchAkeneInvitations(token: String) async throws -> [AkeneInvitation] {
+        try await request("/akene/invitations", token: token)
+    }
+
+    func acceptAkeneInvitation(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/akene/invitations/\(id)/accept", method: "POST", token: token)
+    }
+
+    func declineAkeneInvitation(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/akene/invitations/\(id)/decline", method: "POST", token: token)
+    }
+
     // MARK: - NFC
 
     func verifyNFC(token nfcToken: String, userToken: String) async throws -> NFCVerifyResult {
