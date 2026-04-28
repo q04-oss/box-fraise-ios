@@ -7,6 +7,7 @@ struct BoxFraiseApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
     @State private var screenshotTaken = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,18 @@ struct BoxFraiseApp: App {
                 // Screenshot telemetry — blur fires after capture, not before (cosmetic only)
                 .blur(radius: screenshotTaken ? 20 : 0)
                 .animation(.easeInOut(duration: 0.2), value: screenshotTaken)
+                // Background snapshot privacy — covers app switcher screenshot
+                .overlay {
+                    if scenePhase == .background {
+                        Color(.systemBackground)
+                            .ignoresSafeArea()
+                            .overlay {
+                                Image(systemName: "strawberry")
+                                    .font(.system(size: 48))
+                                    .foregroundStyle(.quaternary)
+                            }
+                    }
+                }
                 // Re-auth banner
                 .overlay(alignment: .top) {
                     if appState.needsReauth {
@@ -26,8 +39,12 @@ struct BoxFraiseApp: App {
                 .onAppear {
                     appDelegate.appState = appState
                     STPAPIClient.shared.publishableKey = Config.stripePublishableKey
-                    // Run security checks
                     AppSecurity.enforce()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background {
+                        appState.clearSensitiveState()
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.userDidTakeScreenshotNotification)) { _ in
                     screenshotTaken = true

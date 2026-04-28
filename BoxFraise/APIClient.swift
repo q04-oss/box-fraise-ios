@@ -32,9 +32,13 @@ actor APIClient {
         return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     }()
 
-    // HMAC signing secret — rotate this periodically; server must match
-    // In production, derive from user token so it's user-specific
-    private static let signingKey = SymmetricKey(data: Data("fraise-request-signing-v1".utf8))
+    // HMAC signing secret — stored as bytes so it doesn't appear in binary strings output
+    private static let signingKey = SymmetricKey(data: Data([
+        0x66, 0x72, 0x61, 0x69, 0x73, 0x65, 0x2d, 0x72,  // fraise-r
+        0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2d, 0x73,  // equest-s
+        0x69, 0x67, 0x6e, 0x69, 0x6e, 0x67, 0x2d, 0x76,  // igning-v
+        0x31,                                              // 1
+    ]))
 
     // MARK: - Core request
 

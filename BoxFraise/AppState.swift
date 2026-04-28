@@ -135,6 +135,14 @@ final class AppState {
         panel = .home
     }
 
+    /// Called when the app backgrounds — clears payment/order state from memory.
+    func clearSensitiveState() {
+        orderState.reset()
+        confirmedOrder = nil
+        staffPin = ""
+        staffOrders = []
+    }
+
     func loadVarieties() async {
         if let v = try? await APIClient.shared.fetchVarieties() {
             varieties = v.filter { $0.active ?? true }

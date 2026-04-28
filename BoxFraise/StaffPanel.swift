@@ -78,6 +78,7 @@ struct StaffPanel: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(c.border, lineWidth: 0.5))
                 .keyboardType(.numberPad)
+                .onPasteCommand(of: []) { _ in }  // block paste
 
             if let error {
                 Text(error)
