@@ -33,7 +33,12 @@ struct ContentView: View {
                     }
                 }
             }
-            .mapStyle(.standard(elevation: .flat))
+            .mapStyle(.standard(
+                elevation: .flat,
+                emphasis: .muted,
+                pointsOfInterest: .excludingAll,
+                showsTraffic: false
+            ))
             .mapControlVisibility(.hidden)
             .ignoresSafeArea()
         }
