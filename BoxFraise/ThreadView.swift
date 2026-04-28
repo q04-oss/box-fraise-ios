@@ -30,10 +30,18 @@ struct ThreadView: View {
                         .font(.system(size: 14, weight: .medium)).foregroundStyle(c.muted)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(thread.name?.lowercased() ?? contactCode)
-                        .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
+                    HStack(spacing: 5) {
+                        if thread.isBusiness {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 11)).foregroundStyle(c.muted)
+                        }
+                        Text(thread.name?.lowercased() ?? contactCode)
+                            .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
+                    }
                     if let met = thread.metAt {
-                        Text("met \(shortDate(met))")
+                        Text(thread.isBusiness
+                             ? "collected here · \(shortDate(met))"
+                             : "met \(shortDate(met))")
                             .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
                     }
                 }

@@ -287,6 +287,11 @@ actor APIClient {
                                                body: ["encrypted_body": encryptedBody], token: token)
     }
 
+    func addBusinessContact(businessCode: String, token: String) async throws {
+        let _: OKResponse = try await request("/connections/business-contact", method: "POST",
+                                               body: ["business_user_code": businessCode], token: token)
+    }
+
     // MARK: - Connections / Met
 
     func getMeetingToken(token: String) async throws -> MeetingToken {

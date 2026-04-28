@@ -131,11 +131,16 @@ private struct ThreadRow: View {
             HStack(spacing: 12) {
                 // Avatar
                 ZStack {
-                    Circle().fill(c.card)
+                    Circle().fill(thread.isBusiness ? c.searchBg : c.card)
                         .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
                         .frame(width: 48, height: 48)
-                    Text(thread.name?.prefix(1).uppercased() ?? "·")
-                        .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
+                    if thread.isBusiness {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 22)).foregroundStyle(c.muted)
+                    } else {
+                        Text(thread.name?.prefix(1).uppercased() ?? "·")
+                            .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

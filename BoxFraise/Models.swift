@@ -219,6 +219,9 @@ struct NFCVerifyResult: Codable {
     let lifetimeDays: Int?
     let streakWeeks: Int?
     let streakMilestone: Bool?
+    // Business node contact
+    let businessUserCode: String?
+    let businessName: String?
 }
 
 struct NFCReorderResult: Codable {
@@ -294,8 +297,10 @@ struct MessageThread: Codable, Identifiable {
     let lastSenderId: Int?
     let unreadCount: Int
     let metAt: String?
+    let isShop: Bool?
 
     var id: Int { contactId }
+    var isBusiness: Bool { isShop == true }
 }
 
 struct PlatformMessage: Codable, Identifiable {

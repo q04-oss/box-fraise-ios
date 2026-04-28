@@ -8,6 +8,7 @@ struct NFCVerifyPanel: View {
     @State private var outcome: ScanOutcome?
     @State private var error: String?
     @State private var delegate: NFCScanDelegate?
+    @State private var addedBusinessCode: String?
 
     enum ScanOutcome {
         case firstVerify(NFCVerifyResult)
@@ -141,6 +142,11 @@ struct NFCVerifyPanel: View {
                     .background(c.card)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                }
+
+                // Business contact
+                if let code = r.businessUserCode, let name = r.businessName {
+                    businessContactButton(code: code, name: name)
                 }
 
                 doneButton
@@ -332,6 +338,36 @@ struct NFCVerifyPanel: View {
         .overlay(alignment: .bottom) {
             Rectangle().frame(height: 0.5).foregroundStyle(c.border)
         }
+    }
+
+    private func businessContactButton(code: String, name: String) -> some View {
+        let added = addedBusinessCode == code
+        return Button {
+            guard !added, let token = Keychain.userToken else { return }
+            addedBusinessCode = code
+            Haptics.impact(.light)
+            Task { try? await APIClient.shared.addBusinessContact(businessCode: code, token: token) }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: added ? "checkmark.circle.fill" : "mappin.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(added ? Color(hex: "4CAF50") : c.muted)
+                Text(added ? "added to messages" : "message \(name.lowercased())")
+                    .font(.mono(12)).foregroundStyle(c.text)
+                Spacer()
+                if !added {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11)).foregroundStyle(c.muted)
+                }
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, 14)
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+                added ? Color(hex: "4CAF50").opacity(0.4) : c.border,
+                lineWidth: 0.5))
+        }
+        .disabled(added)
     }
 
     private var doneButton: some View {
