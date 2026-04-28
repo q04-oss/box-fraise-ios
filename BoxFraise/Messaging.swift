@@ -247,6 +247,7 @@ enum MessagingKeyStore {
         let q: [CFString: Any] = [kSecClass: kSecClassKey,
                                    kSecAttrApplicationTag: Data(tag.utf8),
                                    kSecValueData: data,
+                                   kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                                    kSecAttrSynchronizable: kCFBooleanFalse as Any]
         SecItemDelete(q as CFDictionary)
         SecItemAdd(q as CFDictionary, nil)
@@ -279,9 +280,10 @@ enum MessagingKeyStore {
     }
 
     private static func saveSession(_ data: Data, account: String) {
-        let base: [CFString: Any] = [kSecClass:      kSecClassGenericPassword,
-                                      kSecAttrService: sessionService,
-                                      kSecAttrAccount: account,
+        let base: [CFString: Any] = [kSecClass:       kSecClassGenericPassword,
+                                      kSecAttrService:  sessionService,
+                                      kSecAttrAccount:  account,
+                                      kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                                       kSecAttrSynchronizable: kCFBooleanFalse as Any]
         SecItemDelete(base as CFDictionary)
         var addQ = base; addQ[kSecValueData] = data

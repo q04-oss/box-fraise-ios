@@ -1,23 +1,29 @@
 import Foundation
 import CryptoKit
 
-// MARK: - Message cache (decrypted plaintext by message ID)
+// MARK: - Message cache (decrypted plaintext, in-process only)
+//
+// Intentionally NOT persisted. UserDefaults is an unencrypted on-disk plist
+// included in iCloud/iTunes backups. Decrypted message content must never
+// leave the process. Cache is lost on app restart; messages are re-decrypted
+// from the server-stored ciphertext on next load.
 
 enum MessageCache {
-    private static let cacheKey = "fraise_msg_cache_v1"
+    private static let lock    = NSLock()
+    private static var store:  [Int: String] = [:]
+    private static let maxSize = 2000
 
     static func get(_ id: Int) -> String? {
-        (UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: String])?["\(id)"]
+        lock.lock(); defer { lock.unlock() }
+        return store[id]
     }
 
     static func set(_ id: Int, text: String) {
-        var cache = UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: String] ?? [:]
-        cache["\(id)"] = text
-        if cache.count > 2000 { // prune oldest ~200 entries
-            let pruned = Dictionary(uniqueKeysWithValues: cache.sorted { $0.key < $1.key }.suffix(1800))
-            UserDefaults.standard.set(pruned, forKey: cacheKey)
-        } else {
-            UserDefaults.standard.set(cache, forKey: cacheKey)
+        lock.lock(); defer { lock.unlock() }
+        store[id] = text
+        if store.count > maxSize {
+            let sorted = store.keys.sorted()
+            sorted.prefix(store.count - 1800).forEach { store.removeValue(forKey: $0) }
         }
     }
 }
