@@ -23,7 +23,7 @@ struct AkenePanel: View {
     @State private var selectedHolder: AkeneLeaderboardEntry?
     @State private var showCreateEvent = false
     @State private var showStaffEvents = false
-    @State private var showPurchaseHistory = false
+    @State private var purchases: [AkenePurchaseRecord] = []
     @State private var celebrationProfile: AkeneProfile?
     @AppStorage("akene_prev_rank") private var prevRank: Int = 0
 
@@ -100,6 +100,7 @@ struct AkenePanel: View {
         .sheet(item: $selectedHolder) { holder in
             HolderProfileSheet(holder: holder)
                 .environment(state).fraiseTheme()
+                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showCreateEvent) {
             CreateEventSheet { await load() }
@@ -107,10 +108,6 @@ struct AkenePanel: View {
         }
         .sheet(isPresented: $showStaffEvents) {
             StaffEventsSheet()
-                .environment(state).fraiseTheme()
-        }
-        .sheet(isPresented: $showPurchaseHistory) {
-            PurchaseHistorySheet()
                 .environment(state).fraiseTheme()
         }
         .sheet(item: $celebrationProfile) { p in
@@ -142,22 +139,19 @@ struct AkenePanel: View {
             ? prevRank - (p.rankPosition ?? prevRank) : 0
 
         return HStack(alignment: .top, spacing: 0) {
-            // Tap akène count → purchase history
-            Button { showPurchaseHistory = true } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .lastTextBaseline, spacing: 6) {
-                        Text("\(p.akeneHeld)")
-                            .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
-                        Text(p.akeneHeld == 1 ? "akène" : "akènes")
-                            .font(.mono(11)).foregroundStyle(c.muted)
-                    }
-                    if p.eventsAttended > 0 {
-                        Text("\(p.eventsAttended) \(p.eventsAttended == 1 ? "evening" : "evenings") attended")
-                            .font(.mono(9)).foregroundStyle(c.muted)
-                    } else if p.akeneHeld == 0 {
-                        Text("buy akène to appear on the leaderboard")
-                            .font(.mono(9)).foregroundStyle(c.muted)
-                    }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text("\(p.akeneHeld)")
+                        .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
+                    Text(p.akeneHeld == 1 ? "akène" : "akènes")
+                        .font(.mono(11)).foregroundStyle(c.muted)
+                }
+                if p.eventsAttended > 0 {
+                    Text("\(p.eventsAttended) \(p.eventsAttended == 1 ? "evening" : "evenings") attended")
+                        .font(.mono(9)).foregroundStyle(c.muted)
+                } else if p.akeneHeld == 0 {
+                    Text("buy akène to appear on the leaderboard")
+                        .font(.mono(9)).foregroundStyle(c.muted)
                 }
             }
             Spacer()
@@ -208,6 +202,33 @@ struct AkenePanel: View {
                         if entry.rankPosition < leaderboard.count {
                             Divider().foregroundStyle(c.border).opacity(0.4)
                                 .padding(.leading, Spacing.md + 36 + 12)
+                        }
+                    }
+
+                    // Purchase history at the bottom of the leaderboard
+                    if !purchases.isEmpty {
+                        Divider().foregroundStyle(c.border).opacity(0.6)
+                            .padding(.top, Spacing.sm)
+                        Text("your purchases")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
+                            .textCase(.uppercase)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm)
+                        ForEach(purchases) { p in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(p.quantity) \(p.quantity == 1 ? "akène" : "akènes")")
+                                        .font(.mono(13)).foregroundStyle(c.text)
+                                    Text(formatDate(p.purchasedAt))
+                                        .font(.mono(9)).foregroundStyle(c.muted)
+                                }
+                                Spacer()
+                                Text("CA$\(p.amountCents / 100)")
+                                    .font(.mono(12)).foregroundStyle(c.muted)
+                            }
+                            .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+                            Divider().foregroundStyle(c.border).opacity(0.4)
+                                .padding(.leading, Spacing.md)
                         }
                     }
                 }
@@ -377,6 +398,8 @@ struct AkenePanel: View {
         async let p  = try? await APIClient.shared.fetchAkeneProfile(token: token)
         async let lb = try? await APIClient.shared.fetchAkeneLeaderboard(token: token)
         async let iv = try? await APIClient.shared.fetchAkeneInvitations(token: token)
+        async let pu = try? await APIClient.shared.fetchAkenePurchases(token: token)
+        if let v = await pu { purchases = v }
         if let v = await p {
             if let pos = v.rankPosition, prevRank == 0 { prevRank = pos }
             profile = v
@@ -720,7 +743,9 @@ private struct StaffEventsSheet: View {
 
     @State private var events: [AkeneMyEvent] = []
     @State private var loading = false
-    @State private var eventToSetDate: AkeneMyEvent?
+    @State private var expandedEventId: Int?
+    @State private var pickedDate = Date().addingTimeInterval(7 * 86400)
+    @State private var settingDate = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -750,13 +775,6 @@ private struct StaffEventsSheet: View {
                 }
             }
         }
-        .sheet(item: $eventToSetDate) { event in
-            SetDateSheet(event: event) {
-                eventToSetDate = nil
-                Task { await loadEvents() }
-            }
-            .environment(state).fraiseTheme()
-        }
         .background(c.background.ignoresSafeArea())
         .task { await loadEvents() }
     }
@@ -784,19 +802,41 @@ private struct StaffEventsSheet: View {
                         .font(.mono(10)).foregroundStyle(Color(hex: "E67E22"))
                 }
             }
-            // Set date button for seated events
+            // Inline date setter for seated events
             if event.isSeated {
-                Button { eventToSetDate = event } label: {
-                    HStack {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 12))
-                        Text("set the date")
-                            .font(.mono(12, weight: .medium))
+                if expandedEventId == event.id {
+                    VStack(spacing: Spacing.sm) {
+                        DatePicker("", selection: $pickedDate, in: Date()...,
+                                   displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                        HStack {
+                            Button("cancel") {
+                                expandedEventId = nil
+                            }
+                            .font(.mono(12)).foregroundStyle(c.muted)
+                            Spacer()
+                            Button("confirm date") {
+                                Task { await confirmDate(event: event) }
+                            }
+                            .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
+                            .disabled(settingDate)
+                        }
                     }
-                    .foregroundStyle(c.background)
-                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-                    .background(c.text)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.top, Spacing.sm)
+                } else {
+                    Button { expandedEventId = event.id } label: {
+                        HStack {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 12))
+                            Text("set the date")
+                                .font(.mono(12, weight: .medium))
+                        }
+                        .foregroundStyle(c.background)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                        .background(c.text)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
                 }
             }
         }
@@ -820,6 +860,17 @@ private struct StaffEventsSheet: View {
             .background(color.opacity(0.12)).clipShape(Capsule())
     }
 
+    @MainActor private func confirmDate(event: AkeneMyEvent) async {
+        guard let token = Keychain.userToken else { return }
+        settingDate = true
+        let iso = ISO8601DateFormatter().string(from: pickedDate)
+        try? await APIClient.shared.setAkeneEventDate(eventId: event.id, eventDate: iso, token: token)
+        expandedEventId = nil
+        Haptics.impact(.medium)
+        await loadEvents()
+        settingDate = false
+    }
+
     @MainActor private func loadEvents() async {
         guard let token = Keychain.userToken else { return }
         loading = true
@@ -835,132 +886,6 @@ private struct StaffEventsSheet: View {
     }
 }
 
-// MARK: - Set date sheet
-
-private struct SetDateSheet: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.fraiseColors) private var c
-    @Environment(\.dismiss) private var dismiss
-    let event: AkeneMyEvent
-    let onConfirmed: () -> Void
-
-    @State private var eventDate = Date().addingTimeInterval(7 * 86400)
-    @State private var submitting = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button("cancel") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
-                Spacer()
-                Text("set the date").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
-                Spacer()
-                Button("confirm") { Task { await submit() } }
-                    .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
-                    .disabled(submitting)
-            }
-            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
-
-            Divider().foregroundStyle(c.border).opacity(0.6)
-
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text(event.title.lowercased())
-                    .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
-                Text("all \(event.acceptedCount) guests will be notified immediately.")
-                    .font(.mono(11)).foregroundStyle(c.muted)
-
-                DatePicker("", selection: $eventDate, displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.graphical)
-                    .padding(Spacing.sm)
-                    .background(c.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .padding(Spacing.md)
-
-            Spacer()
-        }
-        .background(c.background.ignoresSafeArea())
-    }
-
-    @MainActor private func submit() async {
-        guard let token = Keychain.userToken else { return }
-        submitting = true
-        let iso = ISO8601DateFormatter().string(from: eventDate)
-        do {
-            try await APIClient.shared.setAkeneEventDate(eventId: event.id, eventDate: iso, token: token)
-            Haptics.impact(.medium)
-            onConfirmed()
-            dismiss()
-        } catch { Haptics.notification(.error) }
-        submitting = false
-    }
-}
-
-// MARK: - Purchase history sheet
-
-private struct PurchaseHistorySheet: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.fraiseColors) private var c
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var purchases: [AkenePurchaseRecord] = []
-    @State private var loading = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button("close") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
-                Spacer()
-                Text("purchases").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
-                Spacer()
-                Color.clear.frame(width: 40)
-            }
-            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
-
-            Divider().foregroundStyle(c.border).opacity(0.6)
-
-            if purchases.isEmpty && !loading {
-                FraiseEmptyState(icon: "leaf", title: "no purchases",
-                                 subtitle: "buy akène to get started.")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(purchases) { p in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(p.quantity) \(p.quantity == 1 ? "akène" : "akènes")")
-                                        .font(.mono(13)).foregroundStyle(c.text)
-                                    Text(formatDate(p.purchasedAt))
-                                        .font(.mono(9)).foregroundStyle(c.muted)
-                                }
-                                Spacer()
-                                Text("CA$\(p.amountCents / 100)")
-                                    .font(.mono(13)).foregroundStyle(c.muted)
-                            }
-                            .padding(.horizontal, Spacing.md).padding(.vertical, 14)
-                            Divider().foregroundStyle(c.border).opacity(0.4)
-                                .padding(.leading, Spacing.md)
-                        }
-                    }
-                }
-            }
-        }
-        .background(c.background.ignoresSafeArea())
-        .task {
-            guard let token = Keychain.userToken else { return }
-            loading = true
-            purchases = (try? await APIClient.shared.fetchAkenePurchases(token: token)) ?? []
-            loading = false
-        }
-    }
-
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.month(.wide).day().year())
-    }
-}
 
 // MARK: - Purchase celebration sheet
 

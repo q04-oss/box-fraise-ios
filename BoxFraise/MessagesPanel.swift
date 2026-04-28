@@ -9,7 +9,6 @@ struct MessagesPanel: View {
     @State private var statusDraft = ""
     @State private var selectedThread: MessageThread?
     @State private var showCompose = false
-    @State private var tab: Tab = .messages
     @State private var dateInvitations: [DateInvitation] = []
     @State private var promotions: [PromotionDelivery] = []
     @State private var memoryRequests: [MemoryRequest] = []
@@ -17,13 +16,11 @@ struct MessagesPanel: View {
     @State private var selectedDateInvitation: DateInvitation?
     @State private var expandedPromotion: Int?
 
-    enum Tab { case messages, offers }
-
     private var totalUnread: Int { threads.reduce(0) { $0 + $1.unreadCount } }
-    private var offersUnread: Int {
-        memoryRequests.count +
-        dateInvitations.filter { $0.isPending }.count +
-        promotions.filter { $0.isUnread }.count
+    private var hasOffers: Bool {
+        !memoryRequests.isEmpty ||
+        dateInvitations.contains { $0.isPending } ||
+        promotions.contains { $0.isUnread }
     }
 
     private var dorotkaThread: MessageThread? { threads.first { $0.isDorotkaThread } }
@@ -59,13 +56,6 @@ struct MessagesPanel: View {
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
 
-            // Tab bar
-            HStack(spacing: 0) {
-                panelTab("messages", badge: totalUnread, selected: tab == .messages) { tab = .messages }
-                panelTab("offers", badge: offersUnread, selected: tab == .offers) { tab = .offers }
-            }
-            .padding(.horizontal, Spacing.md)
-
             // Status line
             if let status = state.user?.status, !status.isEmpty {
                 HStack(spacing: 6) {
@@ -79,24 +69,22 @@ struct MessagesPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            if tab == .offers {
-                offersTab
-            } else if loading && threads.isEmpty {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(0..<5, id: \.self) { _ in FraiseSkeletonRow(wide: true).padding(Spacing.md) }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    // Offers pinned at top — memory prompts, date invitations, promotions
+                    if hasOffers {
+                        offersSection
+                        if !threads.isEmpty {
+                            Divider().foregroundStyle(c.border).opacity(0.6)
+                        }
                     }
-                }
-            } else if threads.isEmpty {
-                FraiseEmptyState(
-                    icon: "bubble.left.and.bubble.right",
-                    title: "no messages",
-                    subtitle: "meet someone in person to start a conversation."
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
+
+                    // Thread list
+                    if loading && threads.isEmpty {
+                        ForEach(0..<5, id: \.self) { _ in
+                            FraiseSkeletonRow(wide: true).padding(Spacing.md)
+                        }
+                    } else {
                         if let d = dorotkaThread {
                             DorotkaRow(thread: d) {
                                 selectedThread = d
@@ -113,10 +101,18 @@ struct MessagesPanel: View {
                             Divider().foregroundStyle(c.border).opacity(0.4)
                                 .padding(.leading, 72)
                         }
+                        if threads.isEmpty && !hasOffers {
+                            FraiseEmptyState(
+                                icon: "bubble.left.and.bubble.right",
+                                title: "no messages",
+                                subtitle: "meet someone in person to start a conversation."
+                            )
+                            .padding(.top, 60)
+                        }
                     }
                 }
-                .refreshable { await load() }
             }
+            .refreshable { await load() }
         }
         .sheet(item: $selectedMemory) { mr in
             MemoryPromptSheet(request: mr) { await loadOffers() }
@@ -148,6 +144,7 @@ struct MessagesPanel: View {
             }
             .environment(state)
             .fraiseTheme()
+            .presentationDetents([.medium])
         }
         .task { await load() }
     }
@@ -259,39 +256,27 @@ private struct ThreadRow: View {
 // MARK: - Offers tab
 
 extension MessagesPanel {
-    var offersTab: some View {
-        ScrollView {
-            LazyVStack(spacing: Spacing.sm) {
-                // Memory prompts — highest priority
-                ForEach(memoryRequests) { mr in
-                    Button { selectedMemory = mr } label: { memoryCard(mr) }
-                }
-
-                // Date night invitations
-                if !dateInvitations.isEmpty {
-                    sectionHeader("dinner invitations")
-                    ForEach(dateInvitations) { inv in
-                        Button { selectedDateInvitation = inv } label: { dateCard(inv) }
-                    }
-                }
-
-                // Promotions
-                if !promotions.isEmpty {
-                    sectionHeader("from businesses")
-                    ForEach(promotions) { promo in
-                        promotionCard(promo)
-                    }
-                }
-
-                if memoryRequests.isEmpty && dateInvitations.isEmpty && promotions.isEmpty {
-                    FraiseEmptyState(icon: "tray", title: "no offers",
-                                     subtitle: "date night invitations and business promotions appear here.")
-                        .padding(.top, 60)
+    @ViewBuilder var offersSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            ForEach(memoryRequests) { mr in
+                Button { selectedMemory = mr } label: { memoryCard(mr) }
+            }
+            let pendingDates = dateInvitations.filter { $0.isPending }
+            if !pendingDates.isEmpty {
+                sectionHeader("dinner invitations")
+                ForEach(pendingDates) { inv in
+                    Button { selectedDateInvitation = inv } label: { dateCard(inv) }
                 }
             }
-            .padding(Spacing.md)
+            let unreadPromos = promotions.filter { $0.isUnread }
+            if !unreadPromos.isEmpty {
+                sectionHeader("from businesses")
+                ForEach(unreadPromos) { promo in
+                    promotionCard(promo)
+                }
+            }
         }
-        .refreshable { await loadOffers() }
+        .padding(Spacing.md)
     }
 
     private func sectionHeader(_ label: String) -> some View {
@@ -417,28 +402,6 @@ extension MessagesPanel {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
             promo.isUnread ? c.text.opacity(0.15) : c.border, lineWidth: 0.5))
-    }
-
-    private func panelTab(_ label: String, badge: Int, selected: Bool,
-                           action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                HStack(spacing: 5) {
-                    Text(label)
-                        .font(.mono(11, weight: selected ? .medium : .regular))
-                        .foregroundStyle(selected ? c.text : c.muted)
-                    if badge > 0 {
-                        Text("\(badge)")
-                            .font(.mono(8)).foregroundStyle(c.background)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .background(c.text).clipShape(Capsule())
-                    }
-                }
-                Rectangle().fill(selected ? c.text : Color.clear).frame(height: 1)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, Spacing.sm)
     }
 
     private func formatDate(_ iso: String) -> String {

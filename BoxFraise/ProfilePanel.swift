@@ -3,8 +3,8 @@ import SwiftUI
 struct ProfilePanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
-    @AppStorage("open_to_dates") private var openToDates: Bool = false
     @State private var earnings: UserEarnings?
+    @State private var showPreferences = false
 
     var body: some View {
         ScrollView {
@@ -69,31 +69,6 @@ struct ProfilePanel: View {
                                 socialRow("CA$\(String(format: "%.2f", Double(balance) / 100))",
                                           label: "earned", icon: "banknote")
                             }
-                            // Date opt-in toggle
-                            HStack(spacing: 12) {
-                                Image(systemName: "fork.knife")
-                                    .font(.system(size: 13)).foregroundStyle(c.muted).frame(width: 20)
-                                Text("dates")
-                                    .font(.mono(10)).foregroundStyle(c.muted).tracking(1)
-                                    .textCase(.uppercase)
-                                    .frame(width: 64, alignment: .leading)
-                                Text(openToDates ? "open" : "off")
-                                    .font(.mono(13)).foregroundStyle(c.text)
-                                Spacer()
-                                Toggle("", isOn: $openToDates)
-                                    .labelsHidden()
-                                    .tint(c.text)
-                                    .onChange(of: openToDates) { _, val in
-                                        Task {
-                                            guard let token = Keychain.userToken else { return }
-                                            try? await APIClient.shared.setDateOptIn(val, token: token)
-                                        }
-                                    }
-                            }
-                            .padding(.horizontal, Spacing.md).padding(.vertical, 13)
-                            .overlay(alignment: .bottom) {
-                                Rectangle().frame(height: 0.5).foregroundStyle(c.border)
-                            }
                         }
                         .background(c.card)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -104,6 +79,9 @@ struct ProfilePanel: View {
                     VStack(spacing: 0) {
                         profileLink("akène", icon: "leaf") {
                             state.panel = .akene
+                        }
+                        profileLink("preferences", icon: "slider.horizontal.3") {
+                            showPreferences = true
                         }
                         profileLink("order history", icon: "clock.arrow.circlepath") {
                             state.panel = .orderHistory
@@ -165,6 +143,11 @@ struct ProfilePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
+        .sheet(isPresented: $showPreferences) {
+            PreferencesSheet()
+                .fraiseTheme()
+                .presentationDetents([.medium])
+        }
         .task {
             await state.refreshUser()
             guard let token = Keychain.userToken else { return }
@@ -203,5 +186,59 @@ struct ProfilePanel: View {
                 Rectangle().frame(height: 0.5).foregroundStyle(c.border)
             }
         }
+    }
+}
+
+// MARK: - Preferences sheet
+
+private struct PreferencesSheet: View {
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("open_to_dates") private var openToDates: Bool = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Text("preferences")
+                    .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Button("done") { dismiss() }
+                    .font(.mono(12)).foregroundStyle(c.muted)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 13)).foregroundStyle(c.muted).frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("open to dates")
+                            .font(.mono(13)).foregroundStyle(c.text)
+                        Text("businesses can invite you to sponsored dinners")
+                            .font(.mono(9)).foregroundStyle(c.muted)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $openToDates)
+                        .labelsHidden().tint(c.text)
+                        .onChange(of: openToDates) { _, val in
+                            Task {
+                                guard let token = Keychain.userToken else { return }
+                                try? await APIClient.shared.setDateOptIn(val, token: token)
+                            }
+                        }
+                }
+                .padding(.horizontal, Spacing.md).padding(.vertical, 16)
+            }
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+            .padding(Spacing.md)
+
+            Spacer()
+        }
+        .background(c.background.ignoresSafeArea())
     }
 }
