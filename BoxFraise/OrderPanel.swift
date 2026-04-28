@@ -9,6 +9,9 @@ struct OrderPanel: View {
     @State private var loading = false
     @State private var error: String?
     @State private var goingForward = true
+    @State private var highlightedVarietyId: Int?
+    @State private var highlightedChocolate: String?
+    @State private var highlightedFinish: String?
 
     private var order: OrderState { state.orderState }
 
@@ -115,14 +118,19 @@ struct OrderPanel: View {
                 ForEach(state.varieties) { v in
                     selectionRow(
                         title: v.name, subtitle: v.description ?? "",
-                        trailing: v.priceFormatted, selected: order.varietyId == v.id
+                        trailing: v.priceFormatted,
+                        selected: (order.varietyId ?? highlightedVarietyId) == v.id
                     ) {
                         Haptics.selection()
                         goingForward = true
-                        state.orderState.varietyId = v.id
+                        highlightedVarietyId = v.id
                         state.orderState.varietyName = v.name
                         state.orderState.priceCents = v.priceCents
                         paymentSheet = nil; error = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                            state.orderState.varietyId = v.id
+                        }
                     }
                 }
             }
@@ -135,19 +143,24 @@ struct OrderPanel: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             FraiseBackButton {
                 goingForward = false
+                highlightedVarietyId = nil
                 state.orderState.varietyId = nil
             }
             FraiseSectionLabel(text: "chocolate")
             ForEach(CHOCOLATES, id: \.id) { choc in
                 selectionRow(
                     title: choc.name, subtitle: "", trailing: "",
-                    selected: order.chocolate == choc.id
+                    selected: (order.chocolate ?? highlightedChocolate) == choc.id
                 ) {
                     Haptics.selection()
                     goingForward = true
-                    state.orderState.chocolate = choc.id
+                    highlightedChocolate = choc.id
                     state.orderState.chocolateName = choc.name
                     paymentSheet = nil; error = nil
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        state.orderState.chocolate = choc.id
+                    }
                 }
             }
         }
@@ -159,19 +172,24 @@ struct OrderPanel: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             FraiseBackButton {
                 goingForward = false
+                highlightedChocolate = nil
                 state.orderState.chocolate = nil
             }
             FraiseSectionLabel(text: "finish")
             ForEach(FINISHES, id: \.id) { fin in
                 selectionRow(
                     title: fin.name, subtitle: "", trailing: "",
-                    selected: order.finish == fin.id
+                    selected: (order.finish ?? highlightedFinish) == fin.id
                 ) {
                     Haptics.selection()
                     goingForward = true
-                    state.orderState.finish = fin.id
+                    highlightedFinish = fin.id
                     state.orderState.finishName = fin.name
                     paymentSheet = nil; error = nil
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        state.orderState.finish = fin.id
+                    }
                 }
             }
         }
@@ -183,6 +201,7 @@ struct OrderPanel: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             FraiseBackButton {
                 goingForward = false
+                highlightedFinish = nil
                 state.orderState.finish = nil
             }
             FraiseSectionLabel(text: "review")
@@ -422,6 +441,13 @@ struct OrderPanel: View {
             Haptics.notification(.success)
             goingForward = true
             state.confirmedOrder = ConfirmedOrder(id: 0, status: "confirmed", varietyName: order.varietyName)
+            if #available(iOS 16.2, *) {
+                startOrderLiveActivity(
+                    orderId: 0,
+                    varietyName: order.varietyName ?? "order",
+                    locationName: state.activeLocation?.name ?? ""
+                )
+            }
         }
     }
 }

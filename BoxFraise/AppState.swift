@@ -39,6 +39,12 @@ final class AppState {
     // Re-auth
     var needsReauth: Bool = false
 
+    // Sheet detent requests — ContentView observes and applies
+    var requestedDetent: Double? = nil
+
+    // Popups the user has joined this session
+    var joinedPopupIds: Set<Int> = []
+
     // Network
     var isOffline: Bool = false
     private var networkMonitor: NWPathMonitor?
@@ -154,6 +160,7 @@ final class AppState {
         orderState.reset()
         confirmedOrder = nil
         panel = biz.isCollection ? .order : .home
+        requestedDetent = 0.5
         Task { await loadVarieties() }
     }
 

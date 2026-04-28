@@ -138,8 +138,11 @@ struct StaffPanel: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(statuses, id: \.self) { s in
+                        let cnt = s == "all"
+                            ? state.staffOrders.count
+                            : state.staffOrders.filter { $0.status == s }.count
                         Button { statusFilter = s } label: {
-                            Text(s)
+                            Text(cnt > 0 ? "\(s) \(cnt)" : s)
                                 .font(.mono(10))
                                 .foregroundStyle(statusFilter == s ? c.background : c.muted)
                                 .tracking(0.5)

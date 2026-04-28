@@ -4,6 +4,7 @@ struct HomePanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var searchQuery = ""
+    @State private var recentSearches: [String] = []
 
     private var approvedPartnerCount: Int {
         state.approvedBusinesses.filter { $0.type == "partner" }.count
@@ -131,12 +132,33 @@ struct HomePanel: View {
                         .padding(.top, 2)
 
                         if let nearest = state.nearestCollection {
-                            Button { state.selectLocation(nearest) } label: {
-                                Text("\(nearest.name.lowercased())  →")
-                                    .font(.system(size: 14, design: .serif))
-                                    .foregroundStyle(c.text)
+                            NearestCard(business: nearest) {
+                                state.selectLocation(nearest)
                             }
                             .padding(.top, 12)
+                        }
+
+                        if !recentSearches.isEmpty {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("recent")
+                                    .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                                    .padding(.bottom, 4)
+                                    .padding(.top, Spacing.lg)
+                                ForEach(recentSearches, id: \.self) { q in
+                                    Button { searchQuery = q } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "clock")
+                                                .font(.system(size: 11)).foregroundStyle(c.muted)
+                                            Text(q).font(.mono(13)).foregroundStyle(c.text)
+                                            Spacer()
+                                        }
+                                        .padding(.vertical, 10)
+                                    }
+                                    if q != recentSearches.last {
+                                        Divider().foregroundStyle(c.border).opacity(0.5)
+                                    }
+                                }
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,6 +182,7 @@ struct HomePanel: View {
                         LazyVStack(spacing: 0) {
                             ForEach(searchResults) { biz in
                                 Button {
+                                    saveRecentSearch(searchQuery)
                                     searchQuery = ""
                                     state.selectLocation(biz)
                                 } label: {
@@ -189,5 +212,59 @@ struct HomePanel: View {
                 }
             }
         }
+        .onAppear {
+            recentSearches = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
+        }
+    }
+
+    private func saveRecentSearch(_ query: String) {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return }
+        var list = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
+        list.removeAll { $0 == q }
+        list.insert(q, at: 0)
+        if list.count > 3 { list = Array(list.prefix(3)) }
+        UserDefaults.standard.set(list, forKey: "recentSearches")
+        recentSearches = list
+    }
+}
+
+// MARK: - Nearest Collection Card
+
+private struct NearestCard: View {
+    @Environment(\.fraiseColors) private var c
+    let business: Business
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("nearest")
+                    .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                Text(business.name.lowercased())
+                    .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
+                if let sub = business.neighbourhood ?? business.city {
+                    Text(sub.lowercased()).font(.mono(11)).foregroundStyle(c.muted)
+                }
+            }
+            .padding(Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            Button(action: action) {
+                HStack {
+                    Text("order")
+                        .font(.mono(13, weight: .medium)).foregroundStyle(c.text)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11, weight: .medium)).foregroundStyle(c.muted)
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 14)
+            }
+        }
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
     }
 }

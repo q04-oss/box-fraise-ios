@@ -144,7 +144,32 @@ struct PopupCard: View {
             .padding(.bottom, Spacing.md)
 
             // ── CTA ───────────────────────────────────────────────────────────
-            if popup.isOpen && popup.seatsClaimed < popup.maxSeats {
+            let userJoined = state.joinedPopupIds.contains(popup.id)
+            if userJoined {
+                Divider().foregroundStyle(c.border).opacity(0.6)
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(hex: "388E3C"))
+                    Text("you're in")
+                        .font(.mono(12))
+                        .foregroundStyle(Color(hex: "388E3C"))
+                    Spacer()
+                    Button {
+                        Task { await cancelJoin() }
+                    } label: {
+                        Text(joining == popup.id ? "—" : "cancel")
+                            .font(.mono(10))
+                            .foregroundStyle(c.muted)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(c.searchBg)
+                            .clipShape(Capsule())
+                    }
+                    .disabled(joining == popup.id)
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 14)
+            } else if popup.isOpen && popup.seatsClaimed < popup.maxSeats {
                 Divider().foregroundStyle(c.border).opacity(0.6)
 
                 if let sheet = paymentSheet {
@@ -161,16 +186,13 @@ struct PopupCard: View {
             } else if popup.isConfirmed {
                 Divider().foregroundStyle(c.border).opacity(0.6)
                 HStack {
-                    Image(systemName: "checkmark.circle.fill")
+                    Image(systemName: "calendar.badge.checkmark")
                         .font(.system(size: 13))
                         .foregroundStyle(Color(hex: "388E3C"))
-                    Text("you're in")
+                    Text("scheduled")
                         .font(.mono(12))
                         .foregroundStyle(Color(hex: "388E3C"))
                     Spacer()
-                    Text(popup.priceFormatted)
-                        .font(.mono(12))
-                        .foregroundStyle(c.muted)
                 }
                 .padding(.horizontal, Spacing.md)
                 .padding(.vertical, 14)
@@ -221,6 +243,7 @@ struct PopupCard: View {
         switch result {
         case .completed:
             Haptics.notification(.success)
+            state.joinedPopupIds.insert(popup.id)
             Task { @MainActor in
                 guard let token = Keychain.userToken else { return }
                 do {
@@ -233,5 +256,19 @@ struct PopupCard: View {
             error = e.localizedDescription
         case .canceled: break
         }
+    }
+
+    @MainActor private func cancelJoin() async {
+        guard let token = Keychain.userToken else { return }
+        joining = popup.id
+        do {
+            try await APIClient.shared.cancelPopup(id: popup.id, token: token)
+            Haptics.notification(.success)
+            state.joinedPopupIds.remove(popup.id)
+            await state.refresh()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        joining = nil
     }
 }

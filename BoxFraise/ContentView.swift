@@ -45,6 +45,31 @@ struct ContentView: View {
             .mapControlVisibility(.hidden)
             .ignoresSafeArea()
         }
+        // User location re-centre button
+        .overlay(alignment: .bottomTrailing) {
+            if locationManager.coordinate != nil {
+                Button {
+                    Haptics.impact(.light)
+                    guard let coord = locationManager.coordinate else { return }
+                    withAnimation {
+                        cameraPosition = .region(MKCoordinateRegion(
+                            center: coord,
+                            span: MKCoordinateSpan(latitudeDelta: 0.06, longitudeDelta: 0.06)
+                        ))
+                    }
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                        .frame(width: 40, height: 40)
+                        .background(.regularMaterial)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                }
+                .padding(.trailing, Spacing.md)
+                .padding(.bottom, UIScreen.main.bounds.height * 0.15)
+            }
+        }
         // Business callout card
         .overlay(alignment: .bottom) {
             if let biz = tappedBusiness {
@@ -53,7 +78,6 @@ struct ContentView: View {
                     tappedBusiness = nil
                     animateToLocation(biz)
                     state.selectLocation(biz)
-                    selectedDetent = .fraction(0.5)
                 } onDismiss: {
                     tappedBusiness = nil
                 }
@@ -97,6 +121,12 @@ struct ContentView: View {
                         span: MKCoordinateSpan(latitudeDelta: 0.06, longitudeDelta: 0.06)
                     ))
                 }
+            }
+        }
+        .onChange(of: state.requestedDetent) { _, frac in
+            if let frac {
+                selectedDetent = .fraction(frac)
+                state.requestedDetent = nil
             }
         }
         .onChange(of: state.businesses) { _, businesses in
