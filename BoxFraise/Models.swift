@@ -255,6 +255,31 @@ struct WalkInItem: Codable, Identifiable, PricedItem {
     let stockRemaining: Int?
 }
 
+// MARK: - Connections / Met
+
+struct MeetingToken: Codable {
+    let token: String
+    let expiresIn: Int
+}
+
+struct PendingConnection: Codable, Identifiable {
+    let id: Int
+    let metAt: String
+    let expiresAt: String
+    let theirName: String?
+    let theirCode: String?
+    let iApproved: Bool
+}
+
+struct FraiseContact: Codable, Identifiable {
+    let id: Int
+    let connectedAt: String
+    let metAt: String?
+    let name: String?
+    let userCode: String?
+    let verified: Bool?
+}
+
 // MARK: - Fraise inbox
 
 struct FraiseMessage: Codable, Identifiable {
@@ -305,7 +330,7 @@ struct StandingOrder: Codable, Identifiable {
 
 enum Panel: Equatable {
     case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
-    case standingOrders, fraiseInbox, referrals
+    case standingOrders, fraiseInbox, referrals, meet
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
@@ -316,7 +341,8 @@ enum Panel: Equatable {
              (.nfcVerify, .nfcVerify), (.walkIn, .walkIn),
              (.standingOrders, .standingOrders),
              (.fraiseInbox, .fraiseInbox),
-             (.referrals, .referrals): return true
+             (.referrals, .referrals),
+             (.meet, .meet): return true
         case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id
         default: return false
         }

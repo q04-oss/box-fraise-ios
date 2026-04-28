@@ -27,6 +27,8 @@
     <string>zbra</string>
     <string>filza</string>
   </array>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>Box Fraise uses Bluetooth to detect nearby fraise users for in-person introductions.</string>
   <key>NSLocationWhenInUseUsageDescription</key>
   <string>Box Fraise uses your location to show the nearest pickup point.</string>
   <key>NSSupportsLiveActivities</key>

@@ -151,6 +151,7 @@ struct ContentView: View {
             case "standingOrders":   state.panel = state.isSignedIn ? .standingOrders : .auth
             case "inbox":            state.panel = state.isSignedIn ? .fraiseInbox : .auth
             case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
+            case "meet":             state.panel = state.isSignedIn ? .meet : .auth
             default:                 state.panel = .home
             }
             state.pendingScreen = nil
@@ -267,6 +268,7 @@ struct SheetContent: View {
         case .standingOrders:      return "standingOrders"
         case .fraiseInbox:         return "fraiseInbox"
         case .referrals:           return "referrals"
+        case .meet:                return "meet"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
         }
     }
@@ -300,6 +302,7 @@ struct SheetContent: View {
         case .standingOrders:      StandingOrdersPanel()
         case .fraiseInbox:         FraiseInboxPanel()
         case .referrals:           ReferralsPanel()
+        case .meet:                MeetPanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
         }
     }

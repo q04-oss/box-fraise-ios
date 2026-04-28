@@ -65,6 +65,9 @@ struct ProfilePanel: View {
                         profileLink("order history", icon: "clock.arrow.circlepath") {
                             state.panel = .orderHistory
                         }
+                        profileLink("met", icon: "person.2.wave.2") {
+                            state.panel = .meet
+                        }
                         profileLink("referrals", icon: "person.2") {
                             state.panel = .referrals
                         }

@@ -31,6 +31,8 @@
 		B001000000000019 /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001C /* LiveActivityBridge.swift */; };
 		B00100000000001A /* StandingOrdersPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001D /* StandingOrdersPanel.swift */; };
 		B00100000000001B /* FraiseInboxPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001E /* FraiseInboxPanel.swift */; };
+		B00100000000001D /* MeetSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000020 /* MeetSession.swift */; };
+		B00100000000001E /* MeetPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000021 /* MeetPanel.swift */; };
 		B00100000000001C /* ReferralsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001F /* ReferralsPanel.swift */; };
 /* End PBXBuildFile section */
 
@@ -63,6 +65,8 @@
 		A00100000000001D /* StandingOrdersPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingOrdersPanel.swift; sourceTree = "<group>"; };
 		A00100000000001E /* FraiseInboxPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FraiseInboxPanel.swift; sourceTree = "<group>"; };
 		A00100000000001F /* ReferralsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralsPanel.swift; sourceTree = "<group>"; };
+		A000000000000020 /* MeetSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetSession.swift; sourceTree = "<group>"; };
+		A000000000000021 /* MeetPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -94,6 +98,8 @@
 				A00100000000001D /* StandingOrdersPanel.swift */,
 				A00100000000001E /* FraiseInboxPanel.swift */,
 				A00100000000001F /* ReferralsPanel.swift */,
+				A000000000000020 /* MeetSession.swift */,
+				A000000000000021 /* MeetPanel.swift */,
 				A001000000000003 /* BoxFraise.entitlements */,
 				A001000000000004 /* Info.plist */,
 			);
@@ -197,6 +203,8 @@
 				B00100000000001A /* StandingOrdersPanel.swift in Sources */,
 				B00100000000001B /* FraiseInboxPanel.swift in Sources */,
 				B00100000000001C /* ReferralsPanel.swift in Sources */,
+				B00100000000001D /* MeetSession.swift in Sources */,
+				B00100000000001E /* MeetPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

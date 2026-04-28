@@ -98,6 +98,8 @@ extension BoxFraiseApp {
             appState.panel = appState.isSignedIn ? .fraiseInbox : .auth
         case "/referrals":
             appState.panel = appState.isSignedIn ? .referrals : .auth
+        case "/meet":
+            appState.panel = appState.isSignedIn ? .meet : .auth
         default:
             break
         }
