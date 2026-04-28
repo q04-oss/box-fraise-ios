@@ -27,6 +27,8 @@
     <string>zbra</string>
     <string>filza</string>
   </array>
+  <key>NSSupportsLiveActivities</key>
+  <true/>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>

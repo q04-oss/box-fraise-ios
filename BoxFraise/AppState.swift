@@ -89,6 +89,7 @@ final class AppState {
         if let pt = pushToken {
             try? await APIClient.shared.updatePushToken(pt, token: response.token)
         }
+        await AppAttest.shared.ensureAttestation(userToken: response.token)
     }
 
     func signOut() {
@@ -110,6 +111,16 @@ final class AppState {
         async let pops = try? await APIClient.shared.fetchPopups()
         if let b = await biz  { businesses = b }
         if let p = await pops { popups = p }
+        writeWidgetData()
+    }
+
+    // Write shared data for the home screen widget via App Group
+    func writeWidgetData() {
+        guard let nearest = nearestCollection,
+              let defaults = UserDefaults(suiteName: "group.com.boxfraise.app") else { return }
+        defaults.set(nearest.name, forKey: "widget_location_name")
+        defaults.set(nearest.displayCity, forKey: "widget_location_city")
+        defaults.set(popups.filter { $0.isOpen }.count, forKey: "widget_popup_count")
     }
 
     /// Central API error handler — call from any panel catch block.

@@ -77,6 +77,14 @@ actor APIClient {
         req.setValue(timestamp, forHTTPHeaderField: "X-Fraise-Ts")
         req.setValue(Data(mac).base64EncodedString(), forHTTPHeaderField: "X-Fraise-Sig")
 
+        // App Attest assertion — layered on top of HMAC for attested devices
+        if let assertion = await AppAttest.shared.assertion(for: message) {
+            req.setValue(assertion, forHTTPHeaderField: "X-Fraise-Assertion")
+            if let kid = await AppAttest.shared.keyID {
+                req.setValue(kid, forHTTPHeaderField: "X-Fraise-Attest-Key")
+            }
+        }
+
         let (data, response) = try await session.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
 
@@ -120,6 +128,14 @@ actor APIClient {
 
     func fetchMe(token: String) async throws -> BoxUser {
         try await request("/users/me", token: token)
+    }
+
+    func registerAttestation(keyID: String, attestation: Data, challenge: Data, userToken: String?) async throws {
+        let _: OKResponse = try await request("/devices/attest", method: "POST", body: [
+            "key_id":      keyID,
+            "attestation": attestation.base64EncodedString(),
+            "challenge":   challenge.base64EncodedString(),
+        ], token: userToken)
     }
 
     func updatePushToken(_ pushToken: String, token: String) async throws {
