@@ -10,9 +10,11 @@ final class AppState {
     var user: BoxUser? = nil
 
     // Map data
-    var businesses: [Business]  = []
+    var businesses: [Business]  = [] { didSet { _approvedCache = nil; _unapprovedCache = nil } }
     var popups: [FraisePopup]   = []
     var varieties: [Variety]    = []
+    private var _approvedCache:   [Business]?
+    private var _unapprovedCache: [Business]?
 
     // Navigation
     var panel: Panel             = .home
@@ -74,10 +76,14 @@ final class AppState {
 
     var isSignedIn: Bool { user != nil }
     var approvedBusinesses: [Business] {
-        businesses.filter { $0.isApproved && $0.coordinate != nil }
+        if let c = _approvedCache { return c }
+        let r = businesses.filter { $0.isApproved && $0.coordinate != nil }
+        _approvedCache = r; return r
     }
     var unapprovedBusinesses: [Business] {
-        businesses.filter { !$0.isApproved && $0.coordinate != nil }
+        if let c = _unapprovedCache { return c }
+        let r = businesses.filter { !$0.isApproved && $0.coordinate != nil }
+        _unapprovedCache = r; return r
     }
     var activeOrder: PastOrder? { orderHistory.first { $0.isPaid } }
 

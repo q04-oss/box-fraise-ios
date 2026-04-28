@@ -141,70 +141,82 @@ struct ThreadView: View {
                 }
             }
 
-            // Reply-to preview bar
-            if let reply = replyTo {
-                HStack(spacing: 8) {
-                    Rectangle().fill(c.muted).frame(width: 2).cornerRadius(1)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(reply.senderId == myId ? "you" : (thread.name?.lowercased() ?? "them"))
-                            .font(.mono(8)).foregroundStyle(c.muted).tracking(0.5)
-                        Text(replyToText ?? reply.reply?.snippet ?? "[encrypted]")
-                            .font(.mono(11)).foregroundStyle(c.text).lineLimit(2)
+        }
+        // Compose bar floats above the keyboard via safeAreaInset so the
+        // message list scrolls behind it rather than being pushed by it.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                // Reply-to preview bar
+                if let reply = replyTo {
+                    HStack(spacing: 8) {
+                        Rectangle().fill(c.muted).frame(width: 2).cornerRadius(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(reply.senderId == myId ? "you" : (thread.name?.lowercased() ?? "them"))
+                                .font(.mono(8)).foregroundStyle(c.muted).tracking(0.5)
+                            Text(replyToText ?? reply.reply?.snippet ?? "[encrypted]")
+                                .font(.mono(11)).foregroundStyle(c.text).lineLimit(2)
+                        }
+                        Spacer()
+                        Button { replyTo = nil; replyToText = nil } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 13)).foregroundStyle(c.muted)
+                        }
+                        .accessibilityLabel("clear reply")
                     }
-                    Spacer()
-                    Button { replyTo = nil; replyToText = nil } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13)).foregroundStyle(c.muted)
+                    .padding(.horizontal, Spacing.md).padding(.vertical, 8)
+                    .background(c.searchBg)
+                }
+
+                // Fraise object attachment preview
+                if let obj = attachedObject {
+                    HStack(spacing: 8) {
+                        Image(systemName: fraiseObjectIcon(obj.type))
+                            .font(.system(size: 11)).foregroundStyle(c.muted)
+                        Text(obj.name?.lowercased() ?? obj.type.rawValue)
+                            .font(.mono(11)).foregroundStyle(c.text).lineLimit(1)
+                        Spacer()
+                        Button { attachedObject = nil } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 13)).foregroundStyle(c.muted)
+                        }
+                        .accessibilityLabel("remove attachment")
                     }
+                    .padding(.horizontal, Spacing.md).padding(.vertical, 8)
+                    .background(c.searchBg)
                 }
-                .padding(.horizontal, Spacing.md).padding(.vertical, 8)
-                .background(c.searchBg)
-            }
 
-            // Fraise object attachment preview
-            if let obj = attachedObject {
-                HStack(spacing: 8) {
-                    Image(systemName: fraiseObjectIcon(obj.type))
-                        .font(.system(size: 11)).foregroundStyle(c.muted)
-                    Text(obj.name?.lowercased() ?? obj.type.rawValue)
-                        .font(.mono(11)).foregroundStyle(c.text).lineLimit(1)
-                    Spacer()
-                    Button { attachedObject = nil } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13)).foregroundStyle(c.muted)
+                Divider().foregroundStyle(c.border).opacity(Divide.section)
+
+                // Compose bar
+                HStack(spacing: 10) {
+                    Button { showAttach = true } label: {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 16)).foregroundStyle(c.muted)
+                            .frame(width: 36, height: 36)
                     }
+                    .accessibilityLabel("attach")
+                    .contentShape(Rectangle())
+
+                    TextField("message", text: $draft, axis: .vertical)
+                        .font(.mono(14)).foregroundStyle(c.text)
+                        .lineLimit(1...5)
+                        .autocorrectionDisabled().textInputAutocapitalization(.never)
+                        .onChange(of: draft) { _, _ in broadcastTyping() }
+
+                    Button {
+                        guard !draft.trimmingCharacters(in: .whitespaces).isEmpty || attachedObject != nil else { return }
+                        Task { await send() }
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(draft.isEmpty && attachedObject == nil ? c.border : c.text)
+                    }
+                    .disabled(sending)
+                    .accessibilityLabel("send")
                 }
-                .padding(.horizontal, Spacing.md).padding(.vertical, 8)
-                .background(c.searchBg)
+                .padding(.horizontal, Spacing.md).padding(.vertical, 10)
+                .background(.regularMaterial)
             }
-
-            Divider().foregroundStyle(c.border).opacity(0.6)
-
-            // Compose bar
-            HStack(spacing: 10) {
-                Button { showAttach = true } label: {
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 16)).foregroundStyle(c.muted)
-                        .frame(width: 36, height: 36)
-                }
-
-                TextField("message", text: $draft, axis: .vertical)
-                    .font(.mono(14)).foregroundStyle(c.text)
-                    .lineLimit(1...5)
-                    .autocorrectionDisabled().textInputAutocapitalization(.never)
-                    .onChange(of: draft) { _, _ in broadcastTyping() }
-
-                Button {
-                    guard !draft.trimmingCharacters(in: .whitespaces).isEmpty || attachedObject != nil else { return }
-                    Task { await send() }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(draft.isEmpty && attachedObject == nil ? c.border : c.text)
-                }
-                .disabled(sending)
-            }
-            .padding(.horizontal, Spacing.md).padding(.vertical, 10)
         }
         .task { await load() }
         .onAppear { startPolling() }

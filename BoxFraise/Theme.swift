@@ -206,6 +206,7 @@ enum Haptics {
 
 struct FraiseSkeletonRow: View {
     @State private var shimmer = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let wide: Bool
 
     init(wide: Bool = false) { self.wide = wide }
@@ -229,10 +230,12 @@ struct FraiseSkeletonRow: View {
         .background(Color.gray.opacity(shimmer ? 0.04 : 0.02))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
+            guard !reduceMotion else { shimmer = true; return }
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 shimmer = true
             }
         }
+        .accessibilityHidden(true)
     }
 }
 
@@ -287,5 +290,113 @@ struct FraiseSectionLabel: View {
             .foregroundStyle(c.muted)
             .tracking(1.5)
             .textCase(.uppercase)
+    }
+}
+
+// MARK: - ViewState
+
+/// Uniform loading/error/data lifecycle for all data-fetching views.
+/// Replaces the `@State var loading: Bool` + silent-nil-on-error pattern.
+enum ViewState<T> {
+    case idle
+    case loading
+    case loaded(T)
+    case failed(String)
+
+    var isLoading: Bool  { if case .loading     = self { return true  }; return false }
+    var value:     T?    { if case .loaded(let v) = self { return v   }; return nil   }
+    var errorMessage: String? {
+        if case .failed(let m) = self { return m }; return nil
+    }
+}
+
+// MARK: - Error view
+
+struct FraiseErrorView: View {
+    @Environment(\.fraiseColors) private var c
+    let message: String
+    var retry: (() async -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 28)).foregroundStyle(c.border)
+            Text(message)
+                .font(.mono(12)).foregroundStyle(c.muted)
+                .multilineTextAlignment(.center)
+            if let retry {
+                Button { Task { await retry() } } label: {
+                    Text("retry")
+                        .font(.mono(12)).foregroundStyle(c.text)
+                        .padding(.horizontal, Spacing.md).padding(.vertical, 10)
+                        .background(c.card)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.button))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.button)
+                            .strokeBorder(c.border, lineWidth: 0.5))
+                }
+                .accessibilityLabel("retry")
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .padding(.horizontal, Spacing.lg)
+    }
+}
+
+// MARK: - Button styles
+
+struct FraisePrimaryButtonStyle: ButtonStyle {
+    @Environment(\.fraiseColors) private var c
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.mono(13, weight: .medium))
+            .foregroundStyle(c.background)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(c.text.opacity(configuration.isPressed ? 0.75 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.button))
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+struct FraiseSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.fraiseColors) private var c
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.mono(13))
+            .foregroundStyle(c.muted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(c.searchBg.opacity(configuration.isPressed ? 0.75 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.button))
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+extension View {
+    func fraisePrimaryButton() -> some View { buttonStyle(FraisePrimaryButtonStyle()) }
+    func fraiseSecondaryButton() -> some View { buttonStyle(FraiseSecondaryButtonStyle()) }
+}
+
+// MARK: - Card modifier
+
+struct FraiseCardModifier: ViewModifier {
+    @Environment(\.fraiseColors) private var c
+    var highlighted: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card)
+                .strokeBorder(highlighted ? c.text.opacity(0.25) : c.border, lineWidth: 0.5))
+    }
+}
+
+extension View {
+    func fraiseCard(highlighted: Bool = false) -> some View {
+        modifier(FraiseCardModifier(highlighted: highlighted))
     }
 }

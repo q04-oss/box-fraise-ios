@@ -67,6 +67,7 @@ struct AkenePanel: View {
                         .foregroundStyle(purchasing ? c.muted.opacity(0.4) : c.muted)
                     }
                     .disabled(purchasing)
+                    .accessibilityLabel("buy akène")
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)

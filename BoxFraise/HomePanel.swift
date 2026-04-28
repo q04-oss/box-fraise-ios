@@ -5,6 +5,8 @@ struct HomePanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var searchQuery = ""
+    @State private var debouncedQuery = ""
+    @State private var debounceTask: Task<Void, Never>?
     @State private var recentSearches: [String] = []
     @State private var pendingAkeneInvitation: AkeneInvitation?
     @State private var pendingDateInvitation: DateInvitation?
@@ -28,7 +30,7 @@ struct HomePanel: View {
     }
 
     private var searchResults: [Business] {
-        let q = searchQuery.lowercased().trimmingCharacters(in: .whitespaces)
+        let q = debouncedQuery.lowercased().trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return [] }
         return state.approvedBusinesses.filter {
             $0.name.lowercased().contains(q) ||
@@ -69,8 +71,17 @@ struct HomePanel: View {
                             .foregroundStyle(c.text)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
+                        .onChange(of: searchQuery) { _, q in
+                            debounceTask?.cancel()
+                            if q.isEmpty { debouncedQuery = q; return }
+                            debounceTask = Task {
+                                try? await Task.sleep(nanoseconds: 300_000_000)
+                                guard !Task.isCancelled else { return }
+                                debouncedQuery = q
+                            }
+                        }
                         if !searchQuery.isEmpty {
-                            Button { searchQuery = "" } label: {
+                            Button { searchQuery = ""; debouncedQuery = "" } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 13))
                                     .foregroundStyle(c.muted)
@@ -104,7 +115,7 @@ struct HomePanel: View {
             .padding(.bottom, 8)
 
             // ── Content ───────────────────────────────────────────────────────
-            if searchQuery.isEmpty {
+            if debouncedQuery.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(dateLabel)
@@ -175,7 +186,7 @@ struct HomePanel: View {
                                     .padding(.bottom, 4)
                                     .padding(.top, Spacing.lg)
                                 ForEach(recentSearches, id: \.self) { q in
-                                    Button { searchQuery = q } label: {
+                                    Button { searchQuery = q; debouncedQuery = q } label: {
                                         HStack(spacing: 10) {
                                             Image(systemName: "clock")
                                                 .font(.system(size: 11)).foregroundStyle(c.muted)
