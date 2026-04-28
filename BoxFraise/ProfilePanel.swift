@@ -143,20 +143,19 @@ struct ProfilePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
-        .refreshable {
-            await state.refreshUser()
-            guard let token = Keychain.userToken else { return }
-            earnings = try? await APIClient.shared.fetchEarnings(token: token)
-        }
+        .refreshable { await reloadProfile() }
         .sheet(isPresented: $showPreferences) {
             PreferencesSheet()
                 .fraiseTheme()
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
-        .task {
-            await state.refreshUser()
-            guard let token = Keychain.userToken else { return }
+        .task { await reloadProfile() }
+    }
+
+    @MainActor private func reloadProfile() async {
+        await state.refreshUser()
+        await Keychain.withToken { token in
             earnings = try? await APIClient.shared.fetchEarnings(token: token)
         }
     }

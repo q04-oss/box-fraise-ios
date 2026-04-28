@@ -111,21 +111,26 @@ enum Keychain {
 
     // MARK: - Metadata (no biometry — for non-sensitive app keys like AppAttest ID)
 
-    static func saveMetadata(key: String, value: String) {
-        guard let data = value.data(using: .utf8) else { return }
+    @discardableResult
+    static func saveMetadata(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
         let account = "meta_\(key)"
-        let del: [CFString: Any] = [
+        let lookup: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword, kSecAttrService: service,
             kSecAttrAccount: account, kSecAttrSynchronizable: kCFBooleanFalse as Any,
         ]
-        SecItemDelete(del as CFDictionary)
+        let update: [CFString: Any] = [kSecValueData: data]
+        let status = SecItemUpdate(lookup as CFDictionary, update as CFDictionary)
+        if status == errSecSuccess { return true }
+        if status != errSecItemNotFound { return false }
+        // Item doesn't exist yet — add it.
         let add: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword, kSecAttrService: service,
             kSecAttrAccount: account, kSecValueData: data,
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecAttrSynchronizable: kCFBooleanFalse as Any,
         ]
-        SecItemAdd(add as CFDictionary, nil)
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
 
     static func readMetadata(key: String) -> String? {

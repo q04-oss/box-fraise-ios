@@ -48,12 +48,12 @@ struct BoxFraiseApp: App {
                     appDelegate.appState = appState
                     AppSecurity.enforce()
                     appState.startNetworkMonitor()
-                    isScreenCaptured = UIScreen.main.isCaptured
+                    isScreenCaptured = Self.activeScreenIsCaptured
                 }
                 .onReceive(NotificationCenter.default.publisher(
                     for: UIScreen.capturedDidChangeNotification)
                 ) { _ in
-                    isScreenCaptured = UIScreen.main.isCaptured
+                    isScreenCaptured = Self.activeScreenIsCaptured
                 }
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -71,6 +71,19 @@ struct BoxFraiseApp: App {
                 }
                 .task { await appState.bootstrap() }
         }
+    }
+}
+
+// MARK: - Screen capture helper
+
+extension BoxFraiseApp {
+    // UIScreen.main is deprecated in iOS 16. Prefer the scene-based accessor;
+    // fall back to UIScreen.main only when no window scene is available.
+    static var activeScreenIsCaptured: Bool {
+        (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen ?? UIScreen.main)
+            .isCaptured
     }
 }
 

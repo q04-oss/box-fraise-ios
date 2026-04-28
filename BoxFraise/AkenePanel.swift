@@ -75,7 +75,7 @@ struct AkenePanel: View {
             if let p = profile {
                 rankCard(p)
             } else if loading {
-                RoundedRectangle(cornerRadius: 14).fill(c.card).frame(height: 96)
+                RoundedRectangle(cornerRadius: Radius.card).fill(c.card).frame(height: 96)
                     .padding(.horizontal, Spacing.md)
             }
 
@@ -181,8 +181,8 @@ struct AkenePanel: View {
         }
         .padding(Spacing.md)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm)
     }
 
@@ -353,8 +353,8 @@ struct AkenePanel: View {
         }
         .padding(Spacing.md)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(
             inv.isPending ? c.text.opacity(0.25) : c.border, lineWidth: 0.5))
     }
 
@@ -599,7 +599,7 @@ private struct EventDetailSheet: View {
                             .font(.mono(12)).foregroundStyle(c.muted)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(c.searchBg)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.button))
                     }
                     Button { Task { await respond(accept: true) } } label: {
                         let full = detail?.isFull ?? invitation.isFull
@@ -607,7 +607,7 @@ private struct EventDetailSheet: View {
                             .font(.mono(12, weight: .medium)).foregroundStyle(c.background)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(c.text)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.button))
                     }
                     .disabled(responding)
                 }
@@ -702,8 +702,8 @@ private struct HolderProfileSheet: View {
                     statCell("\(days)d", label: "avg hold")
                 }
                 .background(c.card)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+                .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
                 .padding(.horizontal, Spacing.md)
             }
             .padding(.top, Spacing.lg)
@@ -826,15 +826,15 @@ private struct StaffEventsSheet: View {
                         .foregroundStyle(c.background)
                         .frame(maxWidth: .infinity).padding(.vertical, 10)
                         .background(c.text)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.field))
                     }
                 }
             }
         }
         .padding(Spacing.md)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(
             event.isSeated ? c.text.opacity(0.3) : c.border, lineWidth: 0.5))
     }
 
@@ -907,7 +907,7 @@ private struct PurchaseCelebrationSheet: View {
                     .font(.mono(13, weight: .medium)).foregroundStyle(c.background)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(c.text)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.card))
             }
             .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.lg)
         }
@@ -988,15 +988,15 @@ private struct CreateEventSheet: View {
                     .font(.mono(13)).foregroundStyle(c.text)
                     .autocorrectionDisabled().textInputAutocapitalization(.never)
                     .padding(12).background(c.searchBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(c.border, lineWidth: 0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.field))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.field).strokeBorder(c.border, lineWidth: 0.5))
             } else {
                 TextField(placeholder, text: text)
                     .font(.mono(13)).foregroundStyle(c.text)
                     .autocorrectionDisabled().textInputAutocapitalization(.never)
                     .padding(12).background(c.searchBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(c.border, lineWidth: 0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.field))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.field).strokeBorder(c.border, lineWidth: 0.5))
             }
         }
     }
@@ -1010,7 +1010,7 @@ private struct CreateEventSheet: View {
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 12)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.button))
+        .overlay(RoundedRectangle(cornerRadius: Radius.button).strokeBorder(c.border, lineWidth: 0.5))
     }
 }
