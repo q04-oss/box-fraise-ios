@@ -177,6 +177,15 @@ extension View {
     }
 }
 
+// MARK: - Shared small components
+
+/// Green presence dot used in the messages status line and contact rows.
+struct StatusDot: View {
+    var body: some View {
+        Circle().fill(Color.fraiseGreen).frame(width: 7, height: 7)
+    }
+}
+
 // MARK: - Haptics
 
 enum Haptics {

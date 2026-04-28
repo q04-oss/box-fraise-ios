@@ -25,16 +25,16 @@ struct AkenePanel: View {
     @State private var showStaffEvents = false
     @State private var purchases: [AkenePurchaseRecord] = []
     @State private var celebrationProfile: AkeneProfile?
-    @AppStorage("akene_prev_rank") private var prevRank: Int = 0
+    @AppStorage("akene_prev_rank") private var state.prevAkeneRank: Int = 0
 
     enum Tab { case rank, invitations }
 
     private var pendingCount: Int { invitations.filter { $0.isPending }.count }
     private var upcomingInvitations: [AkeneInvitation] {
-        invitations.filter { $0.eventStatus != "completed" }
+        invitations.filter { !$0.isCompleted }
     }
     private var pastInvitations: [AkeneInvitation] {
-        invitations.filter { $0.eventStatus == "completed" && $0.status == "accepted" }
+        invitations.filter { $0.isCompleted && $0.isAccepted }
     }
 
     var body: some View {
@@ -47,7 +47,7 @@ struct AkenePanel: View {
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
                 HStack(spacing: 16) {
-                    if state.user?.isShop == true {
+                    if state.user?.isShop ?? false {
                         Button { showStaffEvents = true } label: {
                             Image(systemName: "list.bullet.rectangle")
                                 .font(.system(size: 13)).foregroundStyle(c.muted)
@@ -142,8 +142,8 @@ struct AkenePanel: View {
     // MARK: - Rank card
 
     private func rankCard(_ p: AkeneProfile) -> some View {
-        let delta = prevRank > 0 && (p.rankPosition ?? 0) > 0
-            ? prevRank - (p.rankPosition ?? prevRank) : 0
+        let delta = state.prevAkeneRank > 0 && (p.rankPosition ?? 0) > 0
+            ? state.prevAkeneRank - (p.rankPosition ?? state.prevAkeneRank) : 0
 
         return HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
@@ -332,11 +332,11 @@ struct AkenePanel: View {
                     Label(FraiseDateFormatter.long(date), systemImage: "calendar")
                         .font(.mono(9)).foregroundStyle(c.muted)
                 } else {
-                    Label(inv.eventStatus == "seated" ? "all seats filled · date tba"
+                    Label(inv.isSeated ? "all seats filled · date tba"
                                                       : "date announced when full",
                           systemImage: "calendar.badge.clock")
                         .font(.mono(9))
-                        .foregroundStyle(inv.eventStatus == "seated"
+                        .foregroundStyle(inv.isSeated
                             ? Color.fraiseGreen : c.muted)
                 }
                 let left = inv.seatsLeft
@@ -408,9 +408,9 @@ struct AkenePanel: View {
         async let pu = try? await APIClient.shared.fetchAkenePurchases(token: token)
         if let v = await pu { purchases = v }
         if let v = await p {
-            if let pos = v.rankPosition, prevRank == 0 { prevRank = pos }
+            if let pos = v.rankPosition, state.prevAkeneRank == 0 { state.prevAkeneRank = pos }
             profile = v
-            if let pos = v.rankPosition { prevRank = pos }
+            if let pos = v.rankPosition { state.prevAkeneRank = pos }
         }
         if let v = await lb { leaderboard = v }
         if let v = await iv { invitations = v }
@@ -653,7 +653,7 @@ private struct EventDetailSheet: View {
             ev.endDate   = date.addingTimeInterval(3 * 3600)
             ev.calendar  = store.defaultCalendarForNewEvents
             try? store.save(ev, span: .thisEvent, commit: true)
-            DispatchQueue.main.async { calendarAdded = true }
+            Task { @MainActor in calendarAdded = true }
         }
     }
 

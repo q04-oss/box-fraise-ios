@@ -8,6 +8,26 @@ private extension PricedItem {
     var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
+// MARK: - Domain enumerations
+
+enum BusinessType: String, Codable {
+    case collection, partner
+    case other
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = BusinessType(rawValue: raw) ?? .other
+    }
+}
+
+enum FraiseObjectType: String, Codable {
+    case variety, popup, node
+    case other
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FraiseObjectType(rawValue: raw) ?? .other
+    }
+}
+
 // MARK: - Business
 
 struct Business: Codable, Identifiable {
@@ -16,16 +36,17 @@ struct Business: Codable, Identifiable {
     let address: String?
     let lat: Double?
     let lng: Double?
-    let type: String
+    let type: BusinessType
     let description: String?
     let hours: String?
     let neighbourhood: String?
     let city: String?
     let approvedByAdmin: Bool?
     let locationId: Int?
+    let slug: String?
 
     var isApproved: Bool    { approvedByAdmin ?? false }
-    var isCollection: Bool  { type == "collection" }
+    var isCollection: Bool  { type == .collection }
     var displayCity: String { city ?? neighbourhood ?? "" }
 
     var coordinate: CLLocationCoordinate2D? {
@@ -46,16 +67,46 @@ struct AuthResponse: Codable {
 struct BoxUser: Codable {
     let id: Int
     let displayName: String?
-    let verified: Bool?
-    let isShop: Bool?
+    let verified: Bool
+    let isShop: Bool
     let fraiseChatEmail: String?
     let currentStreakWeeks: Int?
     let socialTier: String?
+    let status: String?
+
+    var initial: String {
+        displayName.flatMap { $0.first.map(String.init) }?.uppercased() ?? "·"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, displayName, verified, isShop, fraiseChatEmail
+        case currentStreakWeeks, socialTier, status
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id               = try c.decode(Int.self, forKey: .id)
+        displayName      = try c.decodeIfPresent(String.self, forKey: .displayName)
+        verified         = try c.decodeIfPresent(Bool.self,   forKey: .verified)         ?? false
+        isShop           = try c.decodeIfPresent(Bool.self,   forKey: .isShop)           ?? false
+        fraiseChatEmail  = try c.decodeIfPresent(String.self, forKey: .fraiseChatEmail)
+        currentStreakWeeks = try c.decodeIfPresent(Int.self,  forKey: .currentStreakWeeks)
+        socialTier       = try c.decodeIfPresent(String.self, forKey: .socialTier)
+        status           = try c.decodeIfPresent(String.self, forKey: .status)
+    }
+
+    init(id: Int, displayName: String?, verified: Bool, isShop: Bool,
+         fraiseChatEmail: String?, currentStreakWeeks: Int?, socialTier: String?, status: String?) {
+        self.id = id; self.displayName = displayName; self.verified = verified
+        self.isShop = isShop; self.fraiseChatEmail = fraiseChatEmail
+        self.currentStreakWeeks = currentStreakWeeks; self.socialTier = socialTier
+        self.status = status
+    }
 }
 
 // MARK: - Popup
 
-struct FraisePopup: Codable, Identifiable, PricedItem {
+struct FraisePopup: Codable, Identifiable {
     let id: Int
     let title: String
     let description: String?
@@ -177,7 +228,8 @@ struct PastOrder: Codable, Identifiable {
     let createdAt: String
 
     var totalFormatted: String { String(format: "CA$%.2f", Double(totalCents) / 100.0) }
-    var isPaid: Bool      { status == "paid" || status == "ready" }
+    var isReady: Bool     { status == "ready" }
+    var isPaid: Bool      { status == "paid" || isReady }
     var isCollected: Bool { status == "collected" }
 }
 
@@ -209,7 +261,6 @@ struct NFCVerifyResult: Codable {
     let quantity: Int?
     let farm: String?
     let harvestDate: String?
-    // Social / time bank
     let fraiseChatEmail: String?
     let isDj: Bool?
     let unlocked: [String]?
@@ -219,7 +270,6 @@ struct NFCVerifyResult: Codable {
     let lifetimeDays: Int?
     let streakWeeks: Int?
     let streakMilestone: Bool?
-    // Business node contact
     let businessUserCode: String?
     let businessName: String?
 }
@@ -297,13 +347,55 @@ struct MessageThread: Codable, Identifiable {
     let lastSenderId: Int?
     let unreadCount: Int
     let metAt: String?
-    let isShop: Bool?
-    let isDorotka: Bool?
+    let isShop: Bool
+    let isDorotka: Bool
     let contactStatus: String?
 
     var id: Int { contactId }
-    var isBusiness: Bool { isShop == true }
-    var isDorotkaThread: Bool { isDorotka == true }
+    var isBusiness: Bool      { isShop }
+    var isDorotkaThread: Bool { isDorotka }
+
+    private enum CodingKeys: String, CodingKey {
+        case contactId, name, userCode, lastMessageId, lastMessageAt, lastEncrypted
+        case lastType, lastSenderId, unreadCount, metAt, isShop, isDorotka, contactStatus
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        contactId      = try c.decode(Int.self,              forKey: .contactId)
+        name           = try c.decodeIfPresent(String.self,  forKey: .name)
+        userCode       = try c.decodeIfPresent(String.self,  forKey: .userCode)
+        lastMessageId  = try c.decodeIfPresent(Int.self,     forKey: .lastMessageId)
+        lastMessageAt  = try c.decodeIfPresent(String.self,  forKey: .lastMessageAt)
+        lastEncrypted  = try c.decodeIfPresent(String.self,  forKey: .lastEncrypted)
+        lastType       = try c.decodeIfPresent(String.self,  forKey: .lastType)
+        lastSenderId   = try c.decodeIfPresent(Int.self,     forKey: .lastSenderId)
+        unreadCount    = try c.decode(Int.self,              forKey: .unreadCount)
+        metAt          = try c.decodeIfPresent(String.self,  forKey: .metAt)
+        isShop         = try c.decodeIfPresent(Bool.self,    forKey: .isShop)    ?? false
+        isDorotka      = try c.decodeIfPresent(Bool.self,    forKey: .isDorotka) ?? false
+        contactStatus  = try c.decodeIfPresent(String.self,  forKey: .contactStatus)
+    }
+
+    init(contactId: Int, name: String?, userCode: String?,
+         lastMessageId: Int?, lastMessageAt: String?,
+         lastEncrypted: String?, lastType: String?, lastSenderId: Int?,
+         unreadCount: Int, metAt: String?,
+         isShop: Bool, isDorotka: Bool, contactStatus: String?) {
+        self.contactId = contactId; self.name = name; self.userCode = userCode
+        self.lastMessageId = lastMessageId; self.lastMessageAt = lastMessageAt
+        self.lastEncrypted = lastEncrypted; self.lastType = lastType
+        self.lastSenderId = lastSenderId; self.unreadCount = unreadCount
+        self.metAt = metAt; self.isShop = isShop; self.isDorotka = isDorotka
+        self.contactStatus = contactStatus
+    }
+}
+
+// Pairs a message ID with its display snippet — enforces the invariant that
+// both fields are present when a reply context exists.
+struct ReplyContext {
+    let messageId: Int
+    let snippet: String
 }
 
 struct PlatformMessage: Codable, Identifiable {
@@ -320,10 +412,15 @@ struct PlatformMessage: Codable, Identifiable {
     let expiresAt: String?
     let replyToId: Int?
     let replyToSnippet: String?
+
+    var reply: ReplyContext? {
+        guard let id = replyToId, let snippet = replyToSnippet else { return nil }
+        return ReplyContext(messageId: id, snippet: snippet)
+    }
 }
 
 struct FraiseObject: Codable {
-    let type: String
+    let type: FraiseObjectType
     let id: Int?
     let name: String?
     let detail: String?
@@ -407,7 +504,7 @@ struct AkeneLeaderboardEntry: Codable, Identifiable {
 
 struct AkeneInvitation: Codable, Identifiable {
     let id: Int
-    let status: String
+    let status: String        // your RSVP: pending | accepted | declined | waitlisted
     let sentAt: String
     let expiresAt: String?
     let respondedAt: String?
@@ -417,12 +514,18 @@ struct AkeneInvitation: Codable, Identifiable {
     let eventDate: String?
     let capacity: Int
     let acceptedCount: Int?
-    let eventStatus: String
+    let eventStatus: String   // event lifecycle: inviting | seated | confirmed | completed
     let businessName: String?
 
-    var isPending: Bool { status == "pending" }
-    var seatsLeft: Int { capacity - (acceptedCount ?? 0) }
-    var isFull: Bool { seatsLeft <= 0 }
+    var isPending:    Bool { status == "pending" }
+    var isAccepted:   Bool { status == "accepted" }
+    var isDeclined:   Bool { status == "declined" }
+    var isWaitlisted: Bool { status == "waitlisted" }
+    var isCompleted:  Bool { eventStatus == "completed" }
+    var isSeated:     Bool { eventStatus == "seated" }
+    var isConfirmed:  Bool { eventStatus == "confirmed" }
+    var seatsLeft:    Int  { capacity - (acceptedCount ?? 0) }
+    var isFull:       Bool { seatsLeft <= 0 }
 }
 
 struct AkeneEventDetail: Codable, Identifiable {
@@ -436,7 +539,7 @@ struct AkeneEventDetail: Codable, Identifiable {
     let businessName: String?
 
     var seatsLeft: Int { capacity - acceptedCount }
-    var isFull: Bool { seatsLeft <= 0 }
+    var isFull: Bool   { seatsLeft <= 0 }
 }
 
 struct AkeneAttendee: Codable, Identifiable {
@@ -480,8 +583,8 @@ struct AkeneMyEvent: Codable, Identifiable {
     let status: String
     let createdAt: String?
 
-    var seatsLeft: Int { capacity - acceptedCount }
-    var isSeated: Bool { status == "seated" }
+    var seatsLeft:   Int  { capacity - acceptedCount }
+    var isSeated:    Bool { status == "seated" }
     var isConfirmed: Bool { status == "confirmed" }
 }
 

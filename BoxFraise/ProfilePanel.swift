@@ -19,7 +19,7 @@ struct ProfilePanel: View {
                             Circle().fill(c.card)
                                 .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
                                 .frame(width: 56, height: 56)
-                            Text(user.displayName?.prefix(1).uppercased() ?? "·")
+                            Text(user.initial)
                                 .font(.system(size: 22, design: .serif))
                                 .foregroundStyle(c.text)
                         }
@@ -27,7 +27,7 @@ struct ProfilePanel: View {
                             Text(user.displayName?.lowercased() ?? "member")
                                 .font(.system(size: 22, design: .serif))
                                 .foregroundStyle(c.text)
-                            if user.verified == true {
+                            if user.verified {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.seal.fill")
                                         .font(.system(size: 10)).foregroundStyle(c.muted)
@@ -39,7 +39,7 @@ struct ProfilePanel: View {
                     }
 
                     // ── Social identity (verified users) ─────────────────────
-                    if user.verified == true {
+                    if user.verified {
                         VStack(spacing: 0) {
                             if let email = user.fraiseChatEmail {
                                 Button { state.panel = .messages } label: {
@@ -95,12 +95,12 @@ struct ProfilePanel: View {
                         profileLink("verify pickup", icon: "checkmark.seal") {
                             state.panel = .nfcVerify
                         }
-                        if user.verified == true {
+                        if user.verified {
                             profileLink("standing orders", icon: "arrow.clockwise.circle") {
                                 state.panel = .standingOrders
                             }
                         }
-                        if user.isShop == true {
+                        if user.isShop {
                             profileLink("staff orders", icon: "person.badge.key") {
                                 state.panel = .staff
                             }
@@ -200,9 +200,7 @@ struct ProfilePanel: View {
 private struct PreferencesSheet: View {
     @Environment(\.fraiseColors) private var c
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("open_to_dates") private var openToDates: Bool = false
-
-    var body: some View {
+        var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
@@ -227,9 +225,9 @@ private struct PreferencesSheet: View {
                             .font(.mono(9)).foregroundStyle(c.muted)
                     }
                     Spacer()
-                    Toggle("", isOn: $openToDates)
+                    Toggle("", isOn: $state.openToDates)
                         .labelsHidden().tint(c.text)
-                        .onChange(of: openToDates) { _, val in
+                        .onChange(of: state.openToDates) { _, val in
                             Task {
                                 guard let token = Keychain.userToken else { return }
                                 try? await APIClient.shared.setDateOptIn(val, token: token)

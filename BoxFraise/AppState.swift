@@ -7,13 +7,12 @@ import Network
 @Observable
 final class AppState {
     // Auth
-    var user: BoxUser?           = nil
-    var pendingScreen: String?   = nil
+    var user: BoxUser? = nil
 
     // Map data
-    var businesses: [Business]   = []
-    var popups: [FraisePopup]    = []
-    var varieties: [Variety]     = []
+    var businesses: [Business]  = []
+    var popups: [FraisePopup]   = []
+    var varieties: [Variety]    = []
 
     // Navigation
     var panel: Panel             = .home
@@ -34,7 +33,9 @@ final class AppState {
     var walkInInventory: [WalkInItem] = []
 
     // User location
-    var userLocation: CLLocationCoordinate2D? = nil
+    var userLocation: CLLocationCoordinate2D? = nil {
+        didSet { _nearestCollectionCache = nil }
+    }
 
     // Social
     var socialAccess: UserSocialAccess? = nil
@@ -55,23 +56,50 @@ final class AppState {
     var isOffline: Bool = false
     private var networkMonitor: NWPathMonitor?
 
-    // Computed
+    // User preferences — backed by UserDefaults, not @AppStorage, so views
+    // don't own persistence state.
+    var openToDates: Bool {
+        get { UserDefaults.standard.bool(forKey: "open_to_dates") }
+        set { UserDefaults.standard.set(newValue, forKey: "open_to_dates") }
+    }
+
+    // Previous akène rank — used to compute the rank-delta arrow in AkenePanel.
+    // Stored in UserDefaults so it survives session boundaries.
+    var prevAkeneRank: Int {
+        get { UserDefaults.standard.integer(forKey: "akene_prev_rank") }
+        set { UserDefaults.standard.set(newValue, forKey: "akene_prev_rank") }
+    }
+
+    // MARK: - Computed
+
     var isSignedIn: Bool { user != nil }
-    var approvedBusinesses: [Business] { businesses.filter { $0.isApproved && $0.coordinate != nil } }
-    var unapprovedBusinesses: [Business] { businesses.filter { !$0.isApproved && $0.coordinate != nil } }
+    var approvedBusinesses: [Business] {
+        businesses.filter { $0.isApproved && $0.coordinate != nil }
+    }
+    var unapprovedBusinesses: [Business] {
+        businesses.filter { !$0.isApproved && $0.coordinate != nil }
+    }
     var activeOrder: PastOrder? { orderHistory.first { $0.isPaid } }
 
+    // Cached nearest collection — recomputed only when businesses or userLocation changes.
+    private var _nearestCollectionCache: Business?
     var nearestCollection: Business? {
-        guard let userLoc = userLocation else {
-            return approvedBusinesses.first(where: { $0.isCollection })
+        if let cached = _nearestCollectionCache { return cached }
+        let result: Business?
+        if let userLoc = userLocation {
+            result = approvedBusinesses
+                .filter { $0.isCollection }
+                .min { a, b in
+                    let locA = CLLocation(latitude: a.lat!, longitude: a.lng!)
+                    let locB = CLLocation(latitude: b.lat!, longitude: b.lng!)
+                    let ref  = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
+                    return locA.distance(from: ref) < locB.distance(from: ref)
+                }
+        } else {
+            result = approvedBusinesses.first { $0.isCollection }
         }
-        return approvedBusinesses
-            .filter { $0.isCollection }
-            .min(by: { a, b in
-                let dA = CLLocation(latitude: a.lat!, longitude: a.lng!).distance(from: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude))
-                let dB = CLLocation(latitude: b.lat!, longitude: b.lng!).distance(from: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude))
-                return dA < dB
-            })
+        _nearestCollectionCache = result
+        return result
     }
 
     // Cache keys
@@ -98,7 +126,7 @@ final class AppState {
         async let pops = try? await APIClient.shared.fetchPopups()
         async let vars = try? await APIClient.shared.fetchVarieties()
 
-        if let b = await biz  { businesses = b }
+        if let b = await biz  { businesses = b; _nearestCollectionCache = nil }
         if let p = await pops { popups = p }
         if let v = await vars { varieties = v.filter { $0.active ?? true } }
 
@@ -114,8 +142,9 @@ final class AppState {
 
     func signIn(response: AuthResponse) async {
         Keychain.userToken = response.token
-        let me = BoxUser(id: response.userId, displayName: response.displayName, verified: response.verified,
-                         isShop: nil, fraiseChatEmail: nil, currentStreakWeeks: nil, socialTier: nil)
+        let me = BoxUser(id: response.userId, displayName: response.displayName,
+                         verified: response.verified ?? false, isShop: false,
+                         fraiseChatEmail: nil, currentStreakWeeks: nil, socialTier: nil, status: nil)
         user = me
         persist(user: me)
         panel = .home
@@ -133,7 +162,6 @@ final class AppState {
         panel = .home
     }
 
-    /// Call when any API call returns 401 — clears session and prompts re-auth.
     func handleUnauthorized() {
         signOut()
         needsReauth = true
@@ -143,9 +171,32 @@ final class AppState {
     func refresh() async {
         async let biz  = try? await APIClient.shared.fetchBusinesses()
         async let pops = try? await APIClient.shared.fetchPopups()
-        if let b = await biz  { businesses = b }
+        if let b = await biz  { businesses = b; _nearestCollectionCache = nil }
         if let p = await pops { popups = p }
         writeWidgetData()
+    }
+
+    // MARK: - Deep link routing
+
+    // Centralises the string → Panel mapping so ContentView and AppDelegate
+    // don't need to know the routing logic.
+    func route(to screenName: String) {
+        switch screenName {
+        case "order-history":  panel = .orderHistory
+        case "popups":         panel = .popups
+        case "profile":        panel = isSignedIn ? .profile : .auth
+        case "verify":         panel = .nfcVerify
+        case "standingOrders": panel = isSignedIn ? .standingOrders : .auth
+        case "inbox",
+             "messages":       panel = isSignedIn ? .messages : .auth
+        case "referrals":      panel = isSignedIn ? .referrals : .auth
+        case "meet":           panel = isSignedIn ? .meet : .auth
+        case "akene":          panel = isSignedIn ? .akene : .auth
+        case "offers",
+             "memory":         panel = isSignedIn ? .messages : .auth
+        default:               panel = .home
+        }
+        requestedDetent = 0.55
     }
 
     // Write shared data for the home screen widget via App Group
@@ -157,11 +208,8 @@ final class AppState {
         defaults.set(popups.filter { $0.isOpen }.count, forKey: "widget_popup_count")
     }
 
-    /// Central API error handler — call from any panel catch block.
     func handle(_ error: Error) {
-        if case APIError.unauthorized = error {
-            handleUnauthorized()
-        }
+        if case APIError.unauthorized = error { handleUnauthorized() }
     }
 
     func selectLocation(_ biz: Business) {
@@ -181,7 +229,6 @@ final class AppState {
         panel = .home
     }
 
-    /// Called when the app backgrounds — clears payment/order state from memory.
     func clearSensitiveState() {
         orderState.reset()
         confirmedOrder = nil

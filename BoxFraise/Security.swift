@@ -85,8 +85,11 @@ enum AppSecurity {
         return false
     }
 
-    // Frida server listens on localhost:27042 by default.
-    // A successful TCP connect means a live Frida server is present.
+    // Frida's default gadget port is 27042. This check catches the common case where
+    // an analyst runs the standard Frida server binary without reconfiguring it.
+    // Custom-port Frida is still caught by hasInjectedDylibs() above, which scans
+    // the loaded image list for FridaGadget.dylib regardless of how Frida was launched.
+    // The two checks are complementary, not redundant.
     private static func hasFridaServer() -> Bool {
         let sock = socket(AF_INET, SOCK_STREAM, 0)
         guard sock >= 0 else { return false }
@@ -209,6 +212,10 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
         }
     }
 
+    // Prepends the ASN.1 DER SubjectPublicKeyInfo header for the given key type/size
+    // before hashing, matching the format used by openssl to generate the pinned hash.
+    // Header bytes sourced from RFC 5480 (EC) and RFC 3279 (RSA) AlgorithmIdentifier
+    // sequences — they encode the OID + null parameters that precede the raw key bits.
     private func spkiHash(for key: SecKey, keyData: Data) -> String {
         let attrs   = SecKeyCopyAttributes(key) as? [CFString: Any]
         let keyType = attrs?[kSecAttrKeyType]      as? String ?? ""
@@ -216,6 +223,7 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
 
         let header: Data
         if keyType == (kSecAttrKeyTypeRSA as String) && keySize == 2048 {
+            // RSA-2048 SPKI header (RFC 3279 §2.3.1)
             header = Data([0x30,0x82,0x01,0x22,0x30,0x0d,0x06,0x09,
                            0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,
                            0x01,0x05,0x00,0x03,0x82,0x01,0x0f,0x00])

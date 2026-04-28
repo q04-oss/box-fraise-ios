@@ -417,7 +417,7 @@ private struct ContactCard: View {
                 HStack(spacing: 6) {
                     Text(contact.name?.lowercased() ?? contact.userCode ?? "member")
                         .font(.mono(14)).foregroundStyle(c.text)
-                    if contact.verified == true {
+                    if contact.verified ?? false {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 9)).foregroundStyle(c.muted)
                     }

@@ -13,6 +13,13 @@ enum MeetState: Equatable {
     case error(String)
 }
 
+// Named type replaces the anonymous (CBPeripheral, Int) tuple so mutation
+// sites are readable and the compiler can enforce field access.
+private struct DiscoveredPeer {
+    let peripheral: CBPeripheral
+    let rssi: Int
+}
+
 // MARK: - Session
 
 @Observable
@@ -28,7 +35,7 @@ final class MeetSession: NSObject {
     private var peripheral: CBPeripheralManager?
     private var central: CBCentralManager?
     private var characteristic: CBMutableCharacteristic?
-    private var discovered: [UUID: (CBPeripheral, Int)] = [:]
+    private var discovered: [UUID: DiscoveredPeer] = [:]
 
     // MARK: - Lifecycle
 
@@ -44,7 +51,7 @@ final class MeetSession: NSObject {
         peripheral?.stopAdvertising()
         peripheral?.removeAllServices()
         central?.stopScan()
-        for (_, pair) in discovered { central?.cancelPeripheralConnection(pair.0) }
+        for (_, peer) in discovered { central?.cancelPeripheralConnection(peer.peripheral) }
         peripheral = nil
         central    = nil
         discovered = [:]
@@ -102,7 +109,7 @@ extension MeetSession: CBCentralManagerDelegate {
         guard rssi > Self.rssiThreshold,
               discovered[peripheral.identifier] == nil else { return }
         peripheral.delegate = self
-        discovered[peripheral.identifier] = (peripheral, rssi)
+        discovered[peripheral.identifier] = DiscoveredPeer(peripheral: peripheral, rssi: rssi)
         cm.connect(peripheral)
     }
 

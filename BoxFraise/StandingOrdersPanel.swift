@@ -16,7 +16,7 @@ struct StandingOrdersPanel: View {
                 Text("standing orders")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
-                if state.user?.verified == true && !creating {
+                if state.user?.verified ?? false && !creating {
                     Button { withAnimation { creating = true } } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 14, weight: .medium)).foregroundStyle(c.muted)
@@ -115,7 +115,7 @@ struct StandingOrdersPanel: View {
     }
 
     @MainActor private func load() async {
-        guard let token = Keychain.userToken, state.user?.verified == true else { return }
+        guard let token = Keychain.userToken, state.user?.verified ?? false else { return }
         loading = true; error = nil
         do {
             orders = try await APIClient.shared.fetchStandingOrders(token: token)

@@ -11,7 +11,9 @@ import CryptoKit
 enum MessageCache {
     private static let lock    = NSLock()
     private static var store:  [Int: String] = [:]
-    private static let maxSize = 2000
+    private static var minKey: Int = Int.max  // O(1) eviction without sorting
+    private static let maxSize   = 2000
+    private static let targetSize = 1800
 
     static func get(_ id: Int) -> String? {
         lock.lock(); defer { lock.unlock() }
@@ -20,10 +22,17 @@ enum MessageCache {
 
     static func set(_ id: Int, text: String) {
         lock.lock(); defer { lock.unlock() }
+        if store[id] == nil && id < minKey { minKey = id }
         store[id] = text
-        if store.count > maxSize {
-            let sorted = store.keys.sorted()
-            sorted.prefix(store.count - 1800).forEach { store.removeValue(forKey: $0) }
+        guard store.count > maxSize else { return }
+        // Evict oldest IDs (lowest key) until we reach targetSize.
+        // minKey tracks the floor so we don't need to sort on every insert.
+        var current = minKey
+        while store.count > targetSize {
+            if store.removeValue(forKey: current) != nil, current == minKey {
+                minKey = store.keys.min() ?? Int.max
+            }
+            current += 1
         }
     }
 }

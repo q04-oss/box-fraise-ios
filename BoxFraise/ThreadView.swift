@@ -65,7 +65,7 @@ struct ThreadView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .medium)).foregroundStyle(c.muted)
                 }
-                .contentShape(Rectangle())
+                .contentShape(Rectangle()).accessibilityLabel("back")
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         if thread.isBusiness {
@@ -148,7 +148,7 @@ struct ThreadView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(reply.senderId == myId ? "you" : (thread.name?.lowercased() ?? "them"))
                             .font(.mono(8)).foregroundStyle(c.muted).tracking(0.5)
-                        Text(replyToText ?? reply.replyToSnippet ?? "[encrypted]")
+                        Text(replyToText ?? reply.reply?.snippet ?? "[encrypted]")
                             .font(.mono(11)).foregroundStyle(c.text).lineLimit(2)
                     }
                     Spacer()
@@ -166,7 +166,7 @@ struct ThreadView: View {
                 HStack(spacing: 8) {
                     Image(systemName: fraiseObjectIcon(obj.type))
                         .font(.system(size: 11)).foregroundStyle(c.muted)
-                    Text(obj.name?.lowercased() ?? obj.type)
+                    Text(obj.name?.lowercased() ?? obj.type.rawValue)
                         .font(.mono(11)).foregroundStyle(c.text).lineLimit(1)
                     Spacer()
                     Button { attachedObject = nil } label: {
@@ -274,7 +274,7 @@ struct ThreadView: View {
 
         // Capture and clear reply state before the async gap
         let replyId     = replyTo?.id
-        let replySnip   = replyToText ?? replyTo?.replyToSnippet
+        let replySnip   = replyToText ?? replyTo?.reply?.snippet
         replyTo = nil; replyToText = nil
 
         do {
@@ -321,18 +321,22 @@ struct ThreadView: View {
 
     private func startPolling() {
         pollingTask = Task {
+            // Interval starts at 3 s and backs off to 15 s after 5 quiet rounds,
+            // reducing battery drain when the conversation is idle.
+            var quietRounds = 0
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                let interval: UInt64 = quietRounds >= 5 ? 15_000_000_000 : 3_000_000_000
+                try? await Task.sleep(nanoseconds: interval)
                 guard let token = Keychain.userToken else { continue }
 
-                async let typingResult = APIClient.shared.checkTyping(fromUserCode: contactCode, token: token)
+                async let typingResult  = APIClient.shared.checkTyping(fromUserCode: contactCode, token: token)
                 async let newMsgsResult = APIClient.shared.fetchNewMessages(
                     userCode: contactCode,
                     afterId: await MainActor.run { messages.last?.id ?? 0 },
                     token: token
                 )
 
-                let typing = (try? await typingResult) ?? false
+                let typing  = (try? await typingResult)  ?? false
                 let newMsgs = (try? await newMsgsResult) ?? []
 
                 await MainActor.run {
@@ -348,7 +352,10 @@ struct ThreadView: View {
                     }
                 }
 
-                if !newMsgs.isEmpty {
+                if newMsgs.isEmpty && !typing {
+                    quietRounds += 1
+                } else {
+                    quietRounds = 0
                     try? await APIClient.shared.markThreadDelivered(userCode: contactCode, token: token)
                     try? await APIClient.shared.markThreadRead(userCode: contactCode, token: token)
                 }
@@ -358,17 +365,12 @@ struct ThreadView: View {
 
     // MARK: - Helpers
 
-    private func FraiseDateFormatter.medium(_ iso: String) -> String {
-        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
-        return date.formatted(.dateTime.month(.wide).day())
-    }
-
-    private func fraiseObjectIcon(_ type: String) -> String {
+    private func fraiseObjectIcon(_ type: FraiseObjectType) -> String {
         switch type {
-        case "variety":  return "leaf"
-        case "popup":    return "calendar.badge.clock"
-        case "node":     return "mappin"
-        default:         return "square.grid.2x2"
+        case .variety: return "leaf"
+        case .popup:   return "calendar.badge.clock"
+        case .node:    return "mappin"
+        case .other:   return "square.grid.2x2"
         }
     }
 }
@@ -408,10 +410,10 @@ private struct MessageBubble: View {
 
             VStack(alignment: isMe ? .trailing : .leading, spacing: 3) {
                 // Quoted reply snippet
-                if let snippet = message.replyToSnippet {
+                if let context = message.reply {
                     HStack(spacing: 5) {
                         Rectangle().fill(c.muted).frame(width: 2).cornerRadius(1)
-                        Text(snippet)
+                        Text(context.snippet)
                             .font(.mono(10)).foregroundStyle(c.muted).lineLimit(1)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 5)
@@ -466,10 +468,10 @@ private struct FraiseObjectCard: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 10)).foregroundStyle(c.muted)
-                Text(object.type.uppercased())
+                Text(object.type.rawValue.uppercased())
                     .font(.mono(8)).foregroundStyle(c.muted).tracking(1.5)
             }
-            Text(object.name?.lowercased() ?? object.type)
+            Text(object.name?.lowercased() ?? object.type.rawValue)
                 .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
             if let detail = object.detail {
                 Text(detail.lowercased()).font(.mono(10)).foregroundStyle(c.muted)

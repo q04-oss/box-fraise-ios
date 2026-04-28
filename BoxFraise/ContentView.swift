@@ -2,6 +2,13 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+// Fraction of screen height reserved below the re-centre button so it clears
+// the collapsed sheet handle (0.12 fraction) with comfortable breathing room.
+private let locationButtonBottomFraction: CGFloat = 0.15
+// Fraction of screen height at which the business callout card sits — positions
+// it above the half-sheet (0.5 fraction) with the card height factored in.
+private let calloutBottomFraction: CGFloat = 0.57
+
 struct ContentView: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
@@ -67,7 +74,7 @@ struct ContentView: View {
                         .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
                 }
                 .padding(.trailing, Spacing.md)
-                .padding(.bottom, UIScreen.main.bounds.height * 0.15)
+                .padding(.bottom, UIScreen.main.bounds.height * locationButtonBottomFraction)
             }
         }
         // Business callout card
@@ -82,7 +89,7 @@ struct ContentView: View {
                     tappedBusiness = nil
                 }
                 .padding(.horizontal, Spacing.md)
-                .padding(.bottom, UIScreen.main.bounds.height * 0.57)
+                .padding(.bottom, UIScreen.main.bounds.height * calloutBottomFraction)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.spring(response: 0.35), value: tappedBusiness != nil)
             }
@@ -143,20 +150,7 @@ struct ContentView: View {
         }
         .onChange(of: state.pendingScreen) { _, screen in
             guard let screen else { return }
-            switch screen {
-            case "order-history":    state.panel = .orderHistory
-            case "popups":           state.panel = .popups
-            case "profile":          state.panel = state.isSignedIn ? .profile : .auth
-            case "verify":           state.panel = .nfcVerify
-            case "standingOrders":   state.panel = state.isSignedIn ? .standingOrders : .auth
-            case "inbox":            state.panel = state.isSignedIn ? .messages : .auth
-            case "messages":         state.panel = state.isSignedIn ? .messages : .auth
-            case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
-            case "meet":             state.panel = state.isSignedIn ? .meet : .auth
-            case "akene":            state.panel = state.isSignedIn ? .akene : .auth
-            case "offers", "memory": state.panel = state.isSignedIn ? .messages : .auth
-            default:                 state.panel = .home
-            }
+            state.route(to: screen)
             state.pendingScreen = nil
             selectedDetent = .fraction(0.55)
         }

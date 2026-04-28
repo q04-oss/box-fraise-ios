@@ -91,6 +91,24 @@ enum Keychain {
         SecItemDelete(query as CFDictionary)
     }
 
+    // MARK: - withToken
+
+    // Eliminates the `guard let token = Keychain.userToken else { return }` pattern
+    // that otherwise appears at the top of every async panel function.
+
+    /// Throwing variant — use with `try await` where callers handle errors.
+    @discardableResult
+    static func withToken<T>(_ body: (String) async throws -> T) async throws -> T {
+        guard let token = userToken else { throw APIError.unauthorized }
+        return try await body(token)
+    }
+
+    /// Non-throwing variant — use where the call site already ignores errors.
+    static func withToken(_ body: (String) async -> Void) async {
+        guard let token = userToken else { return }
+        await body(token)
+    }
+
     // MARK: - Metadata (no biometry — for non-sensitive app keys like AppAttest ID)
 
     static func saveMetadata(key: String, value: String) {

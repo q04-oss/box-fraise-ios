@@ -46,7 +46,6 @@ struct BoxFraiseApp: App {
                 }
                 .onAppear {
                     appDelegate.appState = appState
-                    STPAPIClient.shared.publishableKey = Config.stripePublishableKey
                     AppSecurity.enforce()
                     appState.startNetworkMonitor()
                     isScreenCaptured = UIScreen.main.isCaptured
@@ -177,6 +176,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        STPAPIClient.shared.publishableKey = Config.stripePublishableKey
         requestPushPermission(application)
         return true
     }
@@ -184,7 +184,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     private func requestPushPermission(_ application: UIApplication) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
             guard granted else { return }
-            DispatchQueue.main.async { application.registerForRemoteNotifications() }
+            Task { @MainActor in application.registerForRemoteNotifications() }
         }
     }
 
@@ -193,7 +193,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         Task { @MainActor in await appState?.registerPushToken(token) }
     }
 
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {}
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // Push registration failed — non-fatal, features that need push will degrade silently.
+        _ = error
+    }
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,

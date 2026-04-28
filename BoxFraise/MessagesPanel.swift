@@ -48,12 +48,12 @@ struct MessagesPanel: View {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 14)).foregroundStyle(c.muted)
                     }
-                    .contentShape(Rectangle())
+                    .contentShape(Rectangle()).accessibilityLabel("compose")
                     Button { showStatusEditor = true } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 13)).foregroundStyle(c.muted)
                     }
-                    .contentShape(Rectangle())
+                    .contentShape(Rectangle()).accessibilityLabel("edit status")
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
@@ -61,7 +61,7 @@ struct MessagesPanel: View {
             // Status line
             if let status = state.user?.status, !status.isEmpty {
                 HStack(spacing: 6) {
-                    Circle().fill(Color.fraiseGreen).frame(width: 7, height: 7)
+                    StatusDot()
                     Text(status.lowercased())
                         .font(.mono(11)).foregroundStyle(c.muted)
                     Spacer()
@@ -658,7 +658,7 @@ private struct ComposeSheet: View {
                                         lastMessageId: nil, lastMessageAt: nil,
                                         lastEncrypted: nil, lastType: nil, lastSenderId: nil,
                                         unreadCount: 0, metAt: contact.metAt,
-                                        isShop: nil, isDorotka: nil, contactStatus: nil
+                                        isShop: false, isDorotka: false, contactStatus: nil
                                     )
                                 dismiss()
                                 onSelect(thread)

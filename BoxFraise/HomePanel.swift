@@ -275,7 +275,7 @@ private struct ActiveOrderCard: View {
     let action: () -> Void
 
     private var statusColor: Color {
-        order.status == "ready" ? Color.fraiseBlue : c.muted
+        order.isReady ? Color.fraiseBlue : c.muted
     }
 
     var body: some View {
@@ -287,7 +287,7 @@ private struct ActiveOrderCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(order.varietyName.lowercased())
                         .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
-                    Text(order.status == "ready" ? "ready for collection" : "paid · awaiting batch")
+                    Text(order.isReady ? "ready for collection" : "paid · awaiting batch")
                         .font(.mono(10)).foregroundStyle(statusColor)
                 }
                 Spacer()
@@ -298,7 +298,7 @@ private struct ActiveOrderCard: View {
             .background(c.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                order.status == "ready" ? Color.fraiseBlue.opacity(0.4) : c.border,
+                order.isReady ? Color.fraiseBlue.opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
     }
