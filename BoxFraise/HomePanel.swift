@@ -6,6 +6,7 @@ struct HomePanel: View {
     @Environment(\.fraiseColors) private var c
     @State private var searchQuery = ""
     @State private var recentSearches: [String] = []
+    @State private var pendingAkeneInvitation: AkeneInvitation?
 
     private var approvedPartnerCount: Int {
         state.approvedBusinesses.filter { $0.type == "partner" }.count
@@ -139,6 +140,13 @@ struct HomePanel: View {
                             .padding(.top, 12)
                         }
 
+                        if let inv = pendingAkeneInvitation {
+                            AkenePendingCard(invitation: inv) {
+                                state.panel = .akene
+                            }
+                            .padding(.top, 12)
+                        }
+
                         if state.businesses.isEmpty {
                             VStack(spacing: 10) {
                                 FraiseSkeletonRow(wide: true)
@@ -231,6 +239,11 @@ struct HomePanel: View {
         .onAppear {
             recentSearches = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
         }
+        .task {
+            guard let token = Keychain.userToken else { return }
+            let invs = (try? await APIClient.shared.fetchAkeneInvitations(token: token)) ?? []
+            pendingAkeneInvitation = invs.first { $0.isPending }
+        }
     }
 
     private func saveRecentSearch(_ query: String) {
@@ -279,6 +292,53 @@ private struct ActiveOrderCard: View {
                 order.status == "ready" ? Color(hex: "2196F3").opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
+    }
+}
+
+// MARK: - Akène pending invitation card
+
+private struct AkenePendingCard: View {
+    @Environment(\.fraiseColors) private var c
+    let invitation: AkeneInvitation
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(c.text).frame(width: 40, height: 40)
+                    Image(systemName: "envelope.fill")
+                        .font(.system(size: 15)).foregroundStyle(c.background)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("you've been invited")
+                        .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
+                    Text(invitation.title.lowercased())
+                        .font(.system(size: 13, design: .serif)).foregroundStyle(c.muted)
+                    if let exp = invitation.expiresAt {
+                        Text(expiryLabel(exp))
+                            .font(.mono(9)).foregroundStyle(c.muted)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
+            }
+            .padding(Spacing.md)
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(c.text.opacity(0.2), lineWidth: 0.5))
+        }
+    }
+
+    private func expiryLabel(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+        let hours = Int(date.timeIntervalSinceNow / 3600)
+        if hours <= 0 { return "expired" }
+        return hours < 24 ? "\(hours)h to respond" : "\(hours / 24)d to respond"
     }
 }
 

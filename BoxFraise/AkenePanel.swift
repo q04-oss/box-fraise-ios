@@ -1,5 +1,6 @@
 import SwiftUI
 import StripePaymentSheet
+import EventKit
 
 // MARK: - Main panel
 
@@ -21,12 +22,20 @@ struct AkenePanel: View {
     @State private var selectedInvitation: AkeneInvitation?
     @State private var selectedHolder: AkeneLeaderboardEntry?
     @State private var showCreateEvent = false
-    @State private var showRankShare = false
-    @State private var rankShareImage: Image?
+    @State private var showStaffEvents = false
+    @State private var showPurchaseHistory = false
+    @State private var celebrationProfile: AkeneProfile?
     @AppStorage("akene_prev_rank") private var prevRank: Int = 0
 
     enum Tab { case rank, invitations }
+
     private var pendingCount: Int { invitations.filter { $0.isPending }.count }
+    private var upcomingInvitations: [AkeneInvitation] {
+        invitations.filter { $0.eventStatus != "completed" }
+    }
+    private var pastInvitations: [AkeneInvitation] {
+        invitations.filter { $0.eventStatus == "completed" && $0.status == "accepted" }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,11 +46,15 @@ struct AkenePanel: View {
                 Text("akène")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
-                HStack(spacing: 14) {
+                HStack(spacing: 16) {
                     if state.user?.isShop == true {
+                        Button { showStaffEvents = true } label: {
+                            Image(systemName: "list.bullet.rectangle")
+                                .font(.system(size: 13)).foregroundStyle(c.muted)
+                        }
                         Button { showCreateEvent = true } label: {
                             Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 14)).foregroundStyle(c.muted)
+                                .font(.system(size: 13)).foregroundStyle(c.muted)
                         }
                     }
                     Button { showBuyQuantityPicker = true } label: {
@@ -56,7 +69,7 @@ struct AkenePanel: View {
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
 
-            // Rank card
+            // Rank card — tap akène count for purchase history
             if let p = profile {
                 rankCard(p)
             } else if loading {
@@ -78,7 +91,7 @@ struct AkenePanel: View {
             if tab == .rank { leaderboardList } else { invitationsList }
         }
         .sheet(item: $selectedInvitation) { inv in
-            EventDetailSheet(invitation: inv, myUserId: state.user?.id ?? 0) { accepted, waitlisted in
+            EventDetailSheet(invitation: inv, myUserId: state.user?.id ?? 0) {
                 selectedInvitation = nil
                 Task { await load() }
             }
@@ -92,12 +105,17 @@ struct AkenePanel: View {
             CreateEventSheet { await load() }
                 .environment(state).fraiseTheme()
         }
-        .sheet(isPresented: $showRankShare) {
-            if let img = rankShareImage {
-                ShareLink(item: img, preview: SharePreview("my akène rank", image: img)) {
-                    Text("share").font(.mono(13))
-                }
-            }
+        .sheet(isPresented: $showStaffEvents) {
+            StaffEventsSheet()
+                .environment(state).fraiseTheme()
+        }
+        .sheet(isPresented: $showPurchaseHistory) {
+            PurchaseHistorySheet()
+                .environment(state).fraiseTheme()
+        }
+        .sheet(item: $celebrationProfile) { p in
+            PurchaseCelebrationSheet(profile: p, quantity: buyQuantity)
+                .environment(state).fraiseTheme()
         }
         .confirmationDialog("how many?", isPresented: $showBuyQuantityPicker) {
             ForEach([1, 2, 3, 5], id: \.self) { qty in
@@ -124,19 +142,22 @@ struct AkenePanel: View {
             ? prevRank - (p.rankPosition ?? prevRank) : 0
 
         return HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .lastTextBaseline, spacing: 6) {
-                    Text("\(p.akeneHeld)")
-                        .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
-                    Text(p.akeneHeld == 1 ? "akène" : "akènes")
-                        .font(.mono(11)).foregroundStyle(c.muted)
-                }
-                if p.eventsAttended > 0 {
-                    Text("\(p.eventsAttended) \(p.eventsAttended == 1 ? "evening" : "evenings") attended")
-                        .font(.mono(9)).foregroundStyle(c.muted)
-                } else if p.akeneHeld == 0 {
-                    Text("buy akène to appear on the leaderboard")
-                        .font(.mono(9)).foregroundStyle(c.muted)
+            // Tap akène count → purchase history
+            Button { showPurchaseHistory = true } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text("\(p.akeneHeld)")
+                            .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
+                        Text(p.akeneHeld == 1 ? "akène" : "akènes")
+                            .font(.mono(11)).foregroundStyle(c.muted)
+                    }
+                    if p.eventsAttended > 0 {
+                        Text("\(p.eventsAttended) \(p.eventsAttended == 1 ? "evening" : "evenings") attended")
+                            .font(.mono(9)).foregroundStyle(c.muted)
+                    } else if p.akeneHeld == 0 {
+                        Text("buy akène to appear on the leaderboard")
+                            .font(.mono(9)).foregroundStyle(c.muted)
+                    }
                 }
             }
             Spacer()
@@ -162,9 +183,6 @@ struct AkenePanel: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm)
-        .onTapGesture {
-            if p.akeneHeld > 0 { generateAndShare(p) }
-        }
     }
 
     // MARK: - Leaderboard
@@ -234,15 +252,31 @@ struct AkenePanel: View {
 
     private var invitationsList: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.sm) {
+            LazyVStack(alignment: .leading, spacing: Spacing.sm) {
                 if invitations.isEmpty && !loading {
                     FraiseEmptyState(icon: "envelope", title: "no evenings yet",
                                      subtitle: "hold akène to receive evening invitations.")
                         .padding(.top, 60)
                 } else {
-                    ForEach(invitations) { inv in
-                        Button { selectedInvitation = inv } label: {
-                            invitationCard(inv)
+                    // Upcoming
+                    if !upcomingInvitations.isEmpty {
+                        ForEach(upcomingInvitations) { inv in
+                            Button { selectedInvitation = inv } label: {
+                                invitationCard(inv)
+                            }
+                        }
+                    }
+
+                    // Past evenings attended
+                    if !pastInvitations.isEmpty {
+                        Text("past evenings")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
+                            .textCase(.uppercase)
+                            .padding(.top, Spacing.sm)
+                        ForEach(pastInvitations) { inv in
+                            Button { selectedInvitation = inv } label: {
+                                pastEveningCard(inv)
+                            }
                         }
                     }
                 }
@@ -265,7 +299,6 @@ struct AkenePanel: View {
                 Spacer()
                 statusPill(inv.status)
             }
-
             HStack(spacing: 12) {
                 if let date = inv.eventDate {
                     Label(formatDate(date), systemImage: "calendar")
@@ -278,24 +311,16 @@ struct AkenePanel: View {
                         .foregroundStyle(inv.eventStatus == "seated"
                             ? Color(hex: "4CAF50") : c.muted)
                 }
-                // Seats remaining
                 let left = inv.seatsLeft
                 Label(left > 0 ? "\(left) seats left" : "full",
-                      systemImage: left > 0 ? "person.2" : "person.2.slash")
+                      systemImage: left > 0 ? "person.2" : "checkmark.circle")
                     .font(.mono(9))
-                    .foregroundStyle(left <= 2 ? Color(hex: "C0392B") : c.muted)
-                // Expiry countdown
+                    .foregroundStyle(left <= 0 ? Color(hex: "4CAF50")
+                        : left <= 2 ? Color(hex: "C0392B") : c.muted)
                 if inv.isPending, let exp = inv.expiresAt {
                     Label(expiryLabel(exp), systemImage: "timer")
                         .font(.mono(9)).foregroundStyle(c.muted)
                 }
-            }
-
-            HStack {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10)).foregroundStyle(c.border)
-                Text("tap to see who's coming")
-                    .font(.mono(9)).foregroundStyle(c.muted)
             }
         }
         .padding(Spacing.md)
@@ -303,6 +328,32 @@ struct AkenePanel: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
             inv.isPending ? c.text.opacity(0.25) : c.border, lineWidth: 0.5))
+    }
+
+    private func pastEveningCard(_ inv: AkeneInvitation) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(c.card)
+                    .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13)).foregroundStyle(c.muted)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inv.title.lowercased())
+                    .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                if let date = inv.eventDate {
+                    Text(formatDate(date)).font(.mono(9)).foregroundStyle(c.muted)
+                } else if let biz = inv.businessName {
+                    Text(biz.lowercased()).font(.mono(9)).foregroundStyle(c.muted)
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md).padding(.vertical, 10)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
     }
 
     private func statusPill(_ status: String) -> some View {
@@ -326,7 +377,7 @@ struct AkenePanel: View {
         async let p  = try? await APIClient.shared.fetchAkeneProfile(token: token)
         async let lb = try? await APIClient.shared.fetchAkeneLeaderboard(token: token)
         async let iv = try? await APIClient.shared.fetchAkeneInvitations(token: token)
-        if let v = await p  {
+        if let v = await p {
             if let pos = v.rankPosition, prevRank == 0 { prevRank = pos }
             profile = v
             if let pos = v.rankPosition { prevRank = pos }
@@ -354,18 +405,9 @@ struct AkenePanel: View {
         guard let token = Keychain.userToken, let piId = pendingPaymentIntentId else { return }
         try? await APIClient.shared.confirmAkenePurchase(paymentIntentId: piId, token: token)
         pendingPaymentIntentId = nil
-        Haptics.impact(.medium)
         await load()
-    }
-
-    private func generateAndShare(_ p: AkeneProfile) {
-        let card = RankShareCard(profile: p, name: state.user?.displayName ?? "")
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 3.0
-        if let uiImage = renderer.uiImage {
-            rankShareImage = Image(uiImage: uiImage)
-            showRankShare = true
-        }
+        Haptics.impact(.medium)
+        celebrationProfile = profile  // trigger celebration sheet
     }
 
     // MARK: - Helpers
@@ -412,8 +454,7 @@ struct AkenePanel: View {
         guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
         let hours = Int(date.timeIntervalSinceNow / 3600)
         if hours <= 0 { return "expired" }
-        if hours < 24 { return "\(hours)h left" }
-        return "\(hours / 24)d left"
+        return hours < 24 ? "\(hours)h left" : "\(hours / 24)d left"
     }
 }
 
@@ -425,12 +466,13 @@ private struct EventDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let invitation: AkeneInvitation
     let myUserId: Int
-    let onRespond: (Bool, Bool) async -> Void
+    let onRespond: () async -> Void
 
     @State private var detail: AkeneEventDetail?
     @State private var attendees: [AkeneAttendee] = []
     @State private var loading = false
     @State private var responding = false
+    @State private var calendarAdded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -476,22 +518,42 @@ private struct EventDetailSheet: View {
                                 .foregroundStyle(left <= 0 ? Color(hex: "4CAF50")
                                     : left <= 2 ? Color(hex: "C0392B") : c.muted)
                         }
+
+                        // Add to calendar — only when date is confirmed
+                        if invitation.eventStatus == "confirmed", let dateStr = invitation.eventDate {
+                            Button {
+                                addToCalendar(isoDate: dateStr, title: invitation.title)
+                            } label: {
+                                Label(calendarAdded ? "added to calendar" : "add to calendar",
+                                      systemImage: calendarAdded ? "checkmark.circle.fill" : "calendar.badge.plus")
+                                    .font(.mono(11))
+                                    .foregroundStyle(calendarAdded ? Color(hex: "4CAF50") : c.text)
+                            }
+                            .disabled(calendarAdded)
+                            .padding(.top, 4)
+                        }
                     }
 
                     // Who's coming
-                    if !attendees.isEmpty {
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            Text("attending")
-                                .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
-                                .textCase(.uppercase)
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text("attending")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
+                            .textCase(.uppercase)
+                        if loading {
+                            ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(wide: false) }
+                        } else if attendees.isEmpty {
+                            Text("no one has accepted yet — be the first.")
+                                .font(.mono(11)).foregroundStyle(c.muted)
+                        } else {
                             ForEach(attendees) { a in
                                 HStack(spacing: 10) {
                                     ZStack {
-                                        Circle().fill(c.card)
+                                        Circle().fill(a.rankPosition <= 3 ? c.text : c.card)
                                             .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
                                             .frame(width: 32, height: 32)
                                         Text("\(a.rankPosition)")
-                                            .font(.mono(9, weight: .medium)).foregroundStyle(c.muted)
+                                            .font(.mono(9, weight: .medium))
+                                            .foregroundStyle(a.rankPosition <= 3 ? c.background : c.muted)
                                     }
                                     Text(a.displayName?.lowercased() ?? "member")
                                         .font(.mono(12)).foregroundStyle(c.text)
@@ -501,38 +563,26 @@ private struct EventDetailSheet: View {
                                 }
                             }
                         }
-                    } else if loading {
-                        ForEach(0..<3, id: \.self) { _ in
-                            FraiseSkeletonRow(wide: false)
-                        }
-                    } else {
-                        Text("no one has accepted yet.")
-                            .font(.mono(11)).foregroundStyle(c.muted)
                     }
                 }
                 .padding(Spacing.md)
             }
 
-            // Response buttons for pending invitations
+            // Response buttons
             if invitation.isPending {
                 Divider().foregroundStyle(c.border).opacity(0.6)
                 HStack(spacing: Spacing.sm) {
-                    Button {
-                        Task { await respond(accept: false) }
-                    } label: {
+                    Button { Task { await respond(accept: false) } } label: {
                         Text("decline")
                             .font(.mono(12)).foregroundStyle(c.muted)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(c.searchBg)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    Button {
-                        Task { await respond(accept: true) }
-                    } label: {
+                    Button { Task { await respond(accept: true) } } label: {
                         let full = detail?.isFull ?? invitation.isFull
                         Text(full ? "join waitlist" : "accept")
-                            .font(.mono(12, weight: .medium))
-                            .foregroundStyle(c.background)
+                            .font(.mono(12, weight: .medium)).foregroundStyle(c.background)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
                             .background(c.text)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -559,17 +609,32 @@ private struct EventDetailSheet: View {
         responding = true
         do {
             if accept {
-                let waitlisted = try await APIClient.shared.acceptAkeneInvitation(id: invitation.id, token: token)
-                Haptics.impact(.medium)
-                await onRespond(true, waitlisted)
+                _ = try await APIClient.shared.acceptAkeneInvitation(id: invitation.id, token: token)
             } else {
                 try await APIClient.shared.declineAkeneInvitation(id: invitation.id, token: token)
-                Haptics.impact(.light)
-                await onRespond(false, false)
             }
+            Haptics.impact(accept ? .medium : .light)
+            await onRespond()
             dismiss()
         } catch { Haptics.notification(.error) }
         responding = false
+    }
+
+    private func addToCalendar(isoDate: String, title: String) {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: isoDate) ?? ISO8601DateFormatter().date(from: isoDate) else { return }
+        let store = EKEventStore()
+        store.requestAccess(to: .event) { granted, _ in
+            guard granted else { return }
+            let ev = EKEvent(eventStore: store)
+            ev.title     = title
+            ev.startDate = date
+            ev.endDate   = date.addingTimeInterval(3 * 3600)
+            ev.calendar  = store.defaultCalendarForNewEvents
+            try? store.save(ev, span: .thisEvent, commit: true)
+            DispatchQueue.main.async { calendarAdded = true }
+        }
     }
 
     private func formatDate(_ iso: String) -> String {
@@ -589,7 +654,6 @@ private struct HolderProfileSheet: View {
     let holder: AkeneLeaderboardEntry
 
     @State private var profile: AkeneHolderProfile?
-    @State private var loading = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -600,7 +664,6 @@ private struct HolderProfileSheet: View {
             .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
 
             VStack(spacing: Spacing.lg) {
-                // Avatar
                 ZStack {
                     Circle().fill(c.card)
                         .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
@@ -608,15 +671,12 @@ private struct HolderProfileSheet: View {
                     Text(holder.displayName?.prefix(1).uppercased() ?? "·")
                         .font(.system(size: 28, design: .serif)).foregroundStyle(c.text)
                 }
-
                 VStack(spacing: 4) {
                     Text(holder.displayName?.lowercased() ?? "member")
                         .font(.system(size: 20, design: .serif)).foregroundStyle(c.text)
                     Text("#\(holder.rankPosition) on the leaderboard")
                         .font(.mono(10)).foregroundStyle(c.muted)
                 }
-
-                // Stats grid
                 HStack(spacing: 0) {
                     statCell("\(holder.akeneHeld)", label: "akène")
                     Divider().frame(height: 40).foregroundStyle(c.border)
@@ -633,15 +693,12 @@ private struct HolderProfileSheet: View {
                 .padding(.horizontal, Spacing.md)
             }
             .padding(.top, Spacing.lg)
-
             Spacer()
         }
         .background(c.background.ignoresSafeArea())
         .task {
             guard let token = Keychain.userToken else { return }
-            loading = true
             profile = try? await APIClient.shared.fetchAkeneHolderProfile(userId: holder.id, token: token)
-            loading = false
         }
     }
 
@@ -650,8 +707,301 @@ private struct HolderProfileSheet: View {
             Text(value).font(.system(size: 20, design: .serif)).foregroundStyle(c.text)
             Text(label).font(.mono(9)).foregroundStyle(c.muted)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.md)
+        .frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
+    }
+}
+
+// MARK: - Staff events sheet
+
+private struct StaffEventsSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var events: [AkeneMyEvent] = []
+    @State private var loading = false
+    @State private var eventToSetDate: AkeneMyEvent?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("close") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
+                Spacer()
+                Text("your evenings").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Color.clear.frame(width: 40)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            if events.isEmpty && !loading {
+                FraiseEmptyState(icon: "calendar", title: "no evenings",
+                                 subtitle: "create one with the + button.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: Spacing.sm) {
+                        ForEach(events) { event in
+                            eventRow(event)
+                        }
+                    }
+                    .padding(Spacing.md)
+                }
+            }
+        }
+        .sheet(item: $eventToSetDate) { event in
+            SetDateSheet(event: event) {
+                eventToSetDate = nil
+                Task { await loadEvents() }
+            }
+            .environment(state).fraiseTheme()
+        }
+        .background(c.background.ignoresSafeArea())
+        .task { await loadEvents() }
+    }
+
+    private func eventRow(_ event: AkeneMyEvent) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text(event.title.lowercased())
+                    .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                statusBadge(event.status)
+            }
+            HStack(spacing: 12) {
+                Label("\(event.acceptedCount)/\(event.capacity) seats",
+                      systemImage: "person.2")
+                    .font(.mono(10))
+                    .foregroundStyle(event.acceptedCount >= event.capacity
+                        ? Color(hex: "4CAF50") : c.muted)
+                if let date = event.eventDate {
+                    Label(formatDate(date), systemImage: "calendar")
+                        .font(.mono(10)).foregroundStyle(c.muted)
+                }
+                if let wl = event.waitlistCount, wl > 0 {
+                    Label("\(wl) waitlisted", systemImage: "clock")
+                        .font(.mono(10)).foregroundStyle(Color(hex: "E67E22"))
+                }
+            }
+            // Set date button for seated events
+            if event.isSeated {
+                Button { eventToSetDate = event } label: {
+                    HStack {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: 12))
+                        Text("set the date")
+                            .font(.mono(12, weight: .medium))
+                    }
+                    .foregroundStyle(c.background)
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background(c.text)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+            event.isSeated ? c.text.opacity(0.3) : c.border, lineWidth: 0.5))
+    }
+
+    private func statusBadge(_ status: String) -> some View {
+        let (label, color): (String, Color) = switch status {
+        case "seated":    ("all seats filled", Color(hex: "4CAF50"))
+        case "confirmed": ("confirmed",         Color(hex: "2196F3"))
+        case "completed": ("completed",         c.muted)
+        default:          ("inviting",          c.muted)
+        }
+        return Text(label)
+            .font(.mono(8)).foregroundStyle(color)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(color.opacity(0.12)).clipShape(Capsule())
+    }
+
+    @MainActor private func loadEvents() async {
+        guard let token = Keychain.userToken else { return }
+        loading = true
+        events = (try? await APIClient.shared.fetchAkeneMyEvents(token: token)) ?? []
+        loading = false
+    }
+
+    private func formatDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
+        return date.formatted(.dateTime.month(.wide).day().year())
+    }
+}
+
+// MARK: - Set date sheet
+
+private struct SetDateSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    let event: AkeneMyEvent
+    let onConfirmed: () -> Void
+
+    @State private var eventDate = Date().addingTimeInterval(7 * 86400)
+    @State private var submitting = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("cancel") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
+                Spacer()
+                Text("set the date").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Button("confirm") { Task { await submit() } }
+                    .font(.mono(12, weight: .medium)).foregroundStyle(c.text)
+                    .disabled(submitting)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text(event.title.lowercased())
+                    .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
+                Text("all \(event.acceptedCount) guests will be notified immediately.")
+                    .font(.mono(11)).foregroundStyle(c.muted)
+
+                DatePicker("", selection: $eventDate, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(.graphical)
+                    .padding(Spacing.sm)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(Spacing.md)
+
+            Spacer()
+        }
+        .background(c.background.ignoresSafeArea())
+    }
+
+    @MainActor private func submit() async {
+        guard let token = Keychain.userToken else { return }
+        submitting = true
+        let iso = ISO8601DateFormatter().string(from: eventDate)
+        do {
+            try await APIClient.shared.setAkeneEventDate(eventId: event.id, eventDate: iso, token: token)
+            Haptics.impact(.medium)
+            onConfirmed()
+            dismiss()
+        } catch { Haptics.notification(.error) }
+        submitting = false
+    }
+}
+
+// MARK: - Purchase history sheet
+
+private struct PurchaseHistorySheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var purchases: [AkenePurchaseRecord] = []
+    @State private var loading = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("close") { dismiss() }.font(.mono(12)).foregroundStyle(c.muted)
+                Spacer()
+                Text("purchases").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Color.clear.frame(width: 40)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            if purchases.isEmpty && !loading {
+                FraiseEmptyState(icon: "leaf", title: "no purchases",
+                                 subtitle: "buy akène to get started.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(purchases) { p in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(p.quantity) \(p.quantity == 1 ? "akène" : "akènes")")
+                                        .font(.mono(13)).foregroundStyle(c.text)
+                                    Text(formatDate(p.purchasedAt))
+                                        .font(.mono(9)).foregroundStyle(c.muted)
+                                }
+                                Spacer()
+                                Text("CA$\(p.amountCents / 100)")
+                                    .font(.mono(13)).foregroundStyle(c.muted)
+                            }
+                            .padding(.horizontal, Spacing.md).padding(.vertical, 14)
+                            Divider().foregroundStyle(c.border).opacity(0.4)
+                                .padding(.leading, Spacing.md)
+                        }
+                    }
+                }
+            }
+        }
+        .background(c.background.ignoresSafeArea())
+        .task {
+            guard let token = Keychain.userToken else { return }
+            loading = true
+            purchases = (try? await APIClient.shared.fetchAkenePurchases(token: token)) ?? []
+            loading = false
+        }
+    }
+
+    private func formatDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
+        return date.formatted(.dateTime.month(.wide).day().year())
+    }
+}
+
+// MARK: - Purchase celebration sheet
+
+private struct PurchaseCelebrationSheet: View {
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    let profile: AkeneProfile
+    let quantity: Int
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            VStack(spacing: 8) {
+                Text("\(profile.akeneHeld)")
+                    .font(.system(size: 72, design: .serif, weight: .light))
+                    .foregroundStyle(c.text)
+                Text(profile.akeneHeld == 1 ? "akène" : "akènes")
+                    .font(.mono(14)).foregroundStyle(c.muted)
+            }
+
+            if let pos = profile.rankPosition, let total = profile.totalHolders {
+                Text("#\(pos) of \(total)")
+                    .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
+            }
+
+            Text("your stake in the collectif.")
+                .font(.mono(11)).foregroundStyle(c.muted)
+
+            Spacer()
+
+            Button { dismiss() } label: {
+                Text("done")
+                    .font(.mono(13, weight: .medium)).foregroundStyle(c.background)
+                    .frame(maxWidth: .infinity).padding(.vertical, 16)
+                    .background(c.text)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.lg)
+        }
+        .background(c.background.ignoresSafeArea())
     }
 }
 
@@ -677,7 +1027,8 @@ private struct CreateEventSheet: View {
                 Text("new evening").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
                 Button("create") { Task { await submit() } }
-                    .font(.mono(12, weight: .medium)).foregroundStyle(title.isEmpty ? c.muted : c.text)
+                    .font(.mono(12, weight: .medium))
+                    .foregroundStyle(title.isEmpty ? c.muted : c.text)
                     .disabled(title.isEmpty || submitting)
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
@@ -689,13 +1040,11 @@ private struct CreateEventSheet: View {
                     fraiseField("title", text: $title, placeholder: "a winter dinner")
                     fraiseField("description", text: $description,
                                 placeholder: "details about the evening", multiline: true)
-
                     Text("the date is announced after all seats are filled.")
                         .font(.mono(9)).foregroundStyle(c.muted)
-
-                    // Capacity
                     stepperRow("capacity", value: $capacity, range: 4...40)
-                    stepperRow("invitations to send", value: $inviteCount, range: capacity...(capacity * 4))
+                    stepperRow("invitations to send", value: $inviteCount,
+                               range: capacity...(capacity * 4))
                 }
                 .padding(Spacing.md)
             }
@@ -710,11 +1059,7 @@ private struct CreateEventSheet: View {
             let event = try await APIClient.shared.createAkeneEvent(
                 title: title,
                 description: description.isEmpty ? nil : description,
-                eventDate: nil,
-                capacity: capacity,
-                businessId: nil,
-                token: token
-            )
+                eventDate: nil, capacity: capacity, businessId: nil, token: token)
             _ = try? await APIClient.shared.sendAkeneInvitations(
                 eventId: event.id, count: inviteCount, token: token)
             Haptics.impact(.medium)
@@ -729,8 +1074,7 @@ private struct CreateEventSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label).font(.mono(9)).foregroundStyle(c.muted).tracking(1).textCase(.uppercase)
             if multiline {
-                TextField(placeholder, text: text, axis: .vertical)
-                    .lineLimit(3...6)
+                TextField(placeholder, text: text, axis: .vertical).lineLimit(3...6)
                     .font(.mono(13)).foregroundStyle(c.text)
                     .autocorrectionDisabled().textInputAutocapitalization(.never)
                     .padding(12).background(c.searchBg)
@@ -758,40 +1102,5 @@ private struct CreateEventSheet: View {
         .background(c.card)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
-    }
-}
-
-// MARK: - Shareable rank card
-
-private struct RankShareCard: View {
-    let profile: AkeneProfile
-    let name: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("box fraise").font(.system(size: 11, design: .serif))
-                    .tracking(2).textCase(.uppercase).foregroundStyle(.white.opacity(0.5))
-                Spacer()
-                Text("akène").font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
-            }
-            Spacer()
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text("\(profile.akeneHeld)")
-                    .font(.system(size: 56, design: .serif, weight: .light)).foregroundStyle(.white)
-                Text(profile.akeneHeld == 1 ? "akène" : "akènes")
-                    .font(.system(size: 14)).foregroundStyle(.white.opacity(0.6))
-            }
-            if let pos = profile.rankPosition {
-                Text("#\(pos) of \(profile.totalHolders ?? 0)")
-                    .font(.system(size: 16, design: .serif)).foregroundStyle(.white.opacity(0.8))
-            }
-            Text(name.lowercased())
-                .font(.system(size: 13)).foregroundStyle(.white.opacity(0.5))
-        }
-        .padding(28)
-        .frame(width: 320, height: 200)
-        .background(Color(hex: "1C1C1E"))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }

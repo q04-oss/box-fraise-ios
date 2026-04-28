@@ -462,6 +462,29 @@ struct AkenePurchaseResponse: Codable {
     let amountCents: Int
 }
 
+struct AkenePurchaseRecord: Codable, Identifiable {
+    let id: Int
+    let quantity: Int
+    let amountCents: Int
+    let purchasedAt: String
+}
+
+struct AkeneMyEvent: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let description: String?
+    let eventDate: String?
+    let capacity: Int
+    let acceptedCount: Int
+    let waitlistCount: Int?
+    let status: String
+    let createdAt: String?
+
+    var seatsLeft: Int { capacity - acceptedCount }
+    var isSeated: Bool { status == "seated" }
+    var isConfirmed: Bool { status == "confirmed" }
+}
+
 // MARK: - Panel
 
 enum Panel: Equatable {

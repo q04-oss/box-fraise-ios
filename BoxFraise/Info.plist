@@ -27,6 +27,8 @@
     <string>zbra</string>
     <string>filza</string>
   </array>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Box Fraise adds confirmed evenings to your calendar.</string>
   <key>NSBluetoothAlwaysUsageDescription</key>
   <string>Box Fraise uses Bluetooth to detect nearby fraise users for in-person introductions.</string>
   <key>NSLocationWhenInUseUsageDescription</key>
