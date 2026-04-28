@@ -87,7 +87,7 @@ struct NFCVerifyPanel: View {
 
                 // fraise.chat identity — first time
                 if let email = r.fraiseChatEmail {
-                    Button { state.panel = .fraiseInbox } label: {
+                    Button { state.panel = .messages } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("your fraise identity")

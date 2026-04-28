@@ -149,7 +149,8 @@ struct ContentView: View {
             case "profile":          state.panel = state.isSignedIn ? .profile : .auth
             case "verify":           state.panel = .nfcVerify
             case "standingOrders":   state.panel = state.isSignedIn ? .standingOrders : .auth
-            case "inbox":            state.panel = state.isSignedIn ? .fraiseInbox : .auth
+            case "inbox":            state.panel = state.isSignedIn ? .messages : .auth
+            case "messages":         state.panel = state.isSignedIn ? .messages : .auth
             case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
             case "meet":             state.panel = state.isSignedIn ? .meet : .auth
             default:                 state.panel = .home
@@ -266,7 +267,7 @@ struct SheetContent: View {
         case .nfcVerify:           return "nfcVerify"
         case .walkIn:              return "walkIn"
         case .standingOrders:      return "standingOrders"
-        case .fraiseInbox:         return "fraiseInbox"
+        case .messages:            return "messages"
         case .referrals:           return "referrals"
         case .meet:                return "meet"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
@@ -300,7 +301,7 @@ struct SheetContent: View {
         case .nfcVerify:           NFCVerifyPanel()
         case .walkIn:              WalkInPanel()
         case .standingOrders:      StandingOrdersPanel()
-        case .fraiseInbox:         FraiseInboxPanel()
+        case .messages:            MessagesPanel()
         case .referrals:           ReferralsPanel()
         case .meet:                MeetPanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)

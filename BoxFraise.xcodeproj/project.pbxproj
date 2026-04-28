@@ -32,6 +32,9 @@
 		B00100000000001A /* StandingOrdersPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001D /* StandingOrdersPanel.swift */; };
 		B00100000000001B /* FraiseInboxPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001E /* FraiseInboxPanel.swift */; };
 		B00100000000001D /* MeetSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000020 /* MeetSession.swift */; };
+		B00100000000001F /* FraiseMessaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000022 /* FraiseMessaging.swift */; };
+		B000000000000020 /* MessagesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000023 /* MessagesPanel.swift */; };
+		B000000000000021 /* ThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000024 /* ThreadView.swift */; };
 		B00100000000001E /* MeetPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000021 /* MeetPanel.swift */; };
 		B00100000000001C /* ReferralsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001F /* ReferralsPanel.swift */; };
 /* End PBXBuildFile section */
@@ -67,6 +70,9 @@
 		A00100000000001F /* ReferralsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralsPanel.swift; sourceTree = "<group>"; };
 		A000000000000020 /* MeetSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetSession.swift; sourceTree = "<group>"; };
 		A000000000000021 /* MeetPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetPanel.swift; sourceTree = "<group>"; };
+		A000000000000022 /* FraiseMessaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FraiseMessaging.swift; sourceTree = "<group>"; };
+		A000000000000023 /* MessagesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesPanel.swift; sourceTree = "<group>"; };
+		A000000000000024 /* ThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -100,6 +106,9 @@
 				A00100000000001F /* ReferralsPanel.swift */,
 				A000000000000020 /* MeetSession.swift */,
 				A000000000000021 /* MeetPanel.swift */,
+				A000000000000022 /* FraiseMessaging.swift */,
+				A000000000000023 /* MessagesPanel.swift */,
+				A000000000000024 /* ThreadView.swift */,
 				A001000000000003 /* BoxFraise.entitlements */,
 				A001000000000004 /* Info.plist */,
 			);
@@ -205,6 +214,9 @@
 				B00100000000001C /* ReferralsPanel.swift in Sources */,
 				B00100000000001D /* MeetSession.swift in Sources */,
 				B00100000000001E /* MeetPanel.swift in Sources */,
+				B00100000000001F /* FraiseMessaging.swift in Sources */,
+				B000000000000020 /* MessagesPanel.swift in Sources */,
+				B000000000000021 /* ThreadView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

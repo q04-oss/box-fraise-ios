@@ -273,6 +273,7 @@ struct PendingConnection: Codable, Identifiable {
 
 struct FraiseContact: Codable, Identifiable {
     let id: Int
+    let contactId: Int?
     let connectedAt: String
     let metAt: String?
     let name: String?
@@ -280,7 +281,55 @@ struct FraiseContact: Codable, Identifiable {
     let verified: Bool?
 }
 
-// MARK: - Fraise inbox
+// MARK: - Platform messaging
+
+struct MessageThread: Codable, Identifiable {
+    let contactId: Int
+    let name: String?
+    let userCode: String?
+    let lastMessageId: Int?
+    let lastMessageAt: String?
+    let lastEncrypted: String?
+    let lastType: String?
+    let lastSenderId: Int?
+    let unreadCount: Int
+    let metAt: String?
+
+    var id: Int { contactId }
+}
+
+struct PlatformMessage: Codable, Identifiable {
+    let id: Int
+    let senderId: Int
+    let recipientId: Int
+    let encryptedBody: String
+    let x3dhSenderKey: String?
+    let messageType: String
+    let fraiseObject: FraiseObject?
+    let sentAt: String
+    let deliveredAt: String?
+    let readAt: String?
+    let expiresAt: String?
+}
+
+struct FraiseObject: Codable {
+    let type: String
+    let id: Int?
+    let name: String?
+    let detail: String?
+    let priceCents: Int?
+}
+
+struct UserKeyBundle: Codable {
+    let userId: Int
+    let identityKey: String
+    let signedPreKey: String
+    let signedPreKeySignature: String
+    let oneTimePreKey: String?
+    let oneTimePreKeyId: Int?
+}
+
+// MARK: - Fraise inbox (legacy — superseded by MessagesPanel)
 
 struct FraiseMessage: Codable, Identifiable {
     let id: Int
@@ -330,7 +379,7 @@ struct StandingOrder: Codable, Identifiable {
 
 enum Panel: Equatable {
     case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
-    case standingOrders, fraiseInbox, referrals, meet
+    case standingOrders, messages, referrals, meet
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
@@ -340,7 +389,7 @@ enum Panel: Equatable {
              (.orderHistory, .orderHistory), (.staff, .staff),
              (.nfcVerify, .nfcVerify), (.walkIn, .walkIn),
              (.standingOrders, .standingOrders),
-             (.fraiseInbox, .fraiseInbox),
+             (.messages, .messages),
              (.referrals, .referrals),
              (.meet, .meet): return true
         case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id

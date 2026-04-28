@@ -210,6 +210,83 @@ actor APIClient {
             body: ["rating": rating], token: token)
     }
 
+    // MARK: - Signal key server
+
+    func publishKeys(identityKey: String, signedPreKey: String, signedPreKeySig: String, token: String) async throws {
+        let _: OKResponse = try await request("/keys/register", method: "POST", body: [
+            "identityKey": identityKey,
+            "signedPreKey": signedPreKey,
+            "signedPreKeySig": signedPreKeySig,
+        ], token: token)
+    }
+
+    func fetchKeyBundle(userId: Int, token: String) async throws -> UserKeyBundle {
+        try await request("/keys/bundle/\(userId)", token: token)
+    }
+
+    func fetchKeyBundleByCode(_ userCode: String, token: String) async throws -> UserKeyBundle {
+        try await request("/keys/bundle/by-code/\(userCode)", token: token)
+    }
+
+    // MARK: - Platform messages
+
+    func sendMessage(recipientCode: String, encryptedBody: String, messageType: String = "text",
+                     fraiseObject: FraiseObject? = nil, x3dhSenderKey: String? = nil,
+                     expiresInDays: Int? = nil, token: String) async throws -> PlatformMessage {
+        var body: [String: Any] = [
+            "recipient_code": recipientCode,
+            "encrypted_body": encryptedBody,
+            "message_type": messageType,
+        ]
+        if let obj = fraiseObject, let data = try? JSONEncoder().encode(obj),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            body["fraise_object"] = dict
+        }
+        if let key = x3dhSenderKey { body["x3dh_sender_key"] = key }
+        if let days = expiresInDays { body["expires_in_days"] = days }
+        return try await request("/platform-messages/send", method: "POST", body: body, token: token)
+    }
+
+    func fetchThreads(token: String) async throws -> [MessageThread] {
+        try await request("/platform-messages/threads", token: token)
+    }
+
+    func fetchThread(userCode: String, token: String) async throws -> [PlatformMessage] {
+        try await request("/platform-messages/thread/\(userCode)", token: token)
+    }
+
+    func markThreadDelivered(userCode: String, token: String) async throws {
+        let _: OKResponse = try await request("/platform-messages/thread/\(userCode)/delivered",
+                                               method: "POST", token: token)
+    }
+
+    func markThreadRead(userCode: String, token: String) async throws {
+        let _: OKResponse = try await request("/platform-messages/thread/\(userCode)/read",
+                                               method: "POST", token: token)
+    }
+
+    func sendTyping(toUserCode: String, token: String) async throws {
+        let _: OKResponse = try await request("/platform-messages/thread/\(toUserCode)/typing",
+                                               method: "POST", token: token)
+    }
+
+    func checkTyping(fromUserCode: String, token: String) async throws -> Bool {
+        struct TypingResponse: Decodable { let typing: Bool }
+        let r: TypingResponse = try await request("/platform-messages/thread/\(fromUserCode)/typing-status",
+                                                   token: token)
+        return r.typing
+    }
+
+    func updateStatus(_ status: String, token: String) async throws {
+        let _: OKResponse = try await request("/users/me/status", method: "PATCH",
+                                               body: ["status": status], token: token)
+    }
+
+    func broadcastMessage(encryptedBody: String, token: String) async throws {
+        let _: OKResponse = try await request("/platform-messages/broadcast", method: "POST",
+                                               body: ["encrypted_body": encryptedBody], token: token)
+    }
+
     // MARK: - Connections / Met
 
     func getMeetingToken(token: String) async throws -> MeetingToken {

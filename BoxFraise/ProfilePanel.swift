@@ -40,8 +40,8 @@ struct ProfilePanel: View {
                     if user.verified == true {
                         VStack(spacing: 0) {
                             if let email = user.fraiseChatEmail {
-                                Button { state.panel = .fraiseInbox } label: {
-                                    socialRow(email, label: "inbox", icon: "at")
+                                Button { state.panel = .messages } label: {
+                                    socialRow(email, label: "messages", icon: "at")
                                 }
                             }
                             if let tier = state.socialAccess?.tier ?? user.socialTier {

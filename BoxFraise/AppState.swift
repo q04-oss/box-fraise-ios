@@ -104,6 +104,7 @@ final class AppState {
         async let hist = try? await APIClient.shared.fetchOrderHistory(token: token)
         if let u = await me   { user = u; persist(user: u) }
         if let h = await hist { orderHistory = h }
+        Task { try? await FraiseMessaging.shared.publishKeys(token: token) }
     }
 
     // MARK: - Auth
@@ -118,6 +119,7 @@ final class AppState {
             try? await APIClient.shared.updatePushToken(pt, token: response.token)
         }
         await AppAttest.shared.ensureAttestation(userToken: response.token)
+        Task { try? await FraiseMessaging.shared.publishKeys(token: response.token) }
     }
 
     func signOut() {
