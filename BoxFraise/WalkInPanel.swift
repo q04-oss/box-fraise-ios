@@ -45,7 +45,7 @@ struct WalkInPanel: View {
                             TextField("scan or enter token", text: $nfcToken)
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
-                                .autocapitalization(.none)
+                                .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .padding(.horizontal, 14).padding(.vertical, 10)
                                 .background(c.searchBg)
@@ -101,7 +101,7 @@ struct WalkInPanel: View {
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
                                 .keyboardType(.emailAddress)
-                                .autocapitalization(.none)
+                                .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .padding(.horizontal, 14).padding(.vertical, 10)
                                 .background(c.searchBg)
@@ -127,7 +127,7 @@ struct WalkInPanel: View {
                             } label: {
                                 payLabel
                             }
-                            .disabled(loading || nfcToken.isEmpty)
+                            .disabled(loading || nfcToken.isEmpty || selectedItem == nil)
                         }
                     }
                     .padding(Spacing.md)
@@ -229,14 +229,12 @@ struct WalkInPanel: View {
         }
     }
 
-    private func handlePayment(_ result: PaymentSheetResult) {
-        DispatchQueue.main.async {
-            self.paymentSheet = nil
-            switch result {
-            case .completed: self.confirmed = true
-            case .failed(let e): self.error = e.localizedDescription
-            case .canceled: break
-            }
+    @MainActor private func handlePayment(_ result: PaymentSheetResult) {
+        paymentSheet = nil
+        switch result {
+        case .completed: confirmed = true
+        case .failed(let e): error = e.localizedDescription
+        case .canceled: break
         }
     }
 }

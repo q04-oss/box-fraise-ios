@@ -92,7 +92,7 @@ struct FraisePopup: Codable, Identifiable {
     var isConfirmed: Bool   { status == "confirmed" }
     var isThresholdMet: Bool { status == "threshold_met" }
     var thresholdPct: Double { minSeats > 0 ? min(1.0, Double(seatsClaimed) / Double(minSeats)) : 0 }
-    var priceFormatted: String { "CA$\(priceCents / 100)" }
+    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 // MARK: - Ordering

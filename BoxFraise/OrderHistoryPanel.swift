@@ -4,6 +4,7 @@ struct OrderHistoryPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var loading = false
+    @State private var loadError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,6 +28,20 @@ struct OrderHistoryPanel: View {
 
             if loading {
                 ProgressView().tint(c.muted).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let err = loadError {
+                VStack(spacing: 12) {
+                    Text(err)
+                        .font(.mono(12))
+                        .foregroundStyle(Color(hex: "C0392B"))
+                        .multilineTextAlignment(.center)
+                    Button { Task { await load() } } label: {
+                        Text("retry")
+                            .font(.mono(12))
+                            .foregroundStyle(c.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(Spacing.md)
             } else if state.orderHistory.isEmpty {
                 VStack {
                     Text("no orders yet")
@@ -51,10 +66,13 @@ struct OrderHistoryPanel: View {
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
         loading = true
-        if let history = try? await APIClient.shared.fetchOrderHistory(token: token) {
-            state.orderHistory = history
+        loadError = nil
+        defer { loading = false }
+        do {
+            state.orderHistory = try await APIClient.shared.fetchOrderHistory(token: token)
+        } catch {
+            loadError = error.localizedDescription
         }
-        loading = false
     }
 }
 

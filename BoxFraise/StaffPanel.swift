@@ -181,6 +181,7 @@ struct StaffOrderRow: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     let order: StaffOrder
+    @State private var actionInFlight = false
 
     private var nextAction: (label: String, action: String)? {
         switch order.status {
@@ -226,7 +227,10 @@ struct StaffOrderRow: View {
 
             if let next = nextAction {
                 Button {
+                    guard !actionInFlight else { return }
+                    actionInFlight = true
                     Task { @MainActor in
+                        defer { actionInFlight = false }
                         await APIClient.shared.staffAction(next.action, orderId: order.id, pin: state.staffPin)
                         if let token = Keychain.userToken,
                            let orders = try? await APIClient.shared.fetchStaffOrders(pin: state.staffPin, token: token) {
@@ -241,6 +245,7 @@ struct StaffOrderRow: View {
                         .background(c.text)
                         .clipShape(Capsule())
                 }
+                .disabled(actionInFlight)
             }
         }
         .padding(.vertical, 8)

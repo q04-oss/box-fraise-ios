@@ -25,6 +25,13 @@ struct PopupsPanel: View {
                     .foregroundStyle(c.muted)
                     .tracking(0.5)
 
+                if let err = error {
+                    Text(err)
+                        .font(.mono(11))
+                        .foregroundStyle(Color(hex: "C0392B"))
+                        .onTapGesture { error = nil }
+                }
+
                 if state.popups.isEmpty {
                     Text("no popups open right now")
                         .font(.mono(13))
@@ -175,22 +182,24 @@ struct PopupCard: View {
         }
     }
 
-    private func handlePayment(_ result: PaymentSheetResult) {
-        DispatchQueue.main.async {
-            self.paymentSheet = nil
-            self.joining = nil
-            switch result {
-            case .completed:
-                Task { @MainActor in
-                    guard let token = Keychain.userToken else { return }
-                    try? await APIClient.shared.confirmPopupJoin(id: popup.id, token: token)
+    @MainActor private func handlePayment(_ result: PaymentSheetResult) {
+        paymentSheet = nil
+        joining = nil
+        switch result {
+        case .completed:
+            Task { @MainActor in
+                guard let token = Keychain.userToken else { return }
+                do {
+                    try await APIClient.shared.confirmPopupJoin(id: popup.id, token: token)
                     await state.refresh()
+                } catch {
+                    self.error = error.localizedDescription
                 }
-            case .failed(let e):
-                self.error = e.localizedDescription
-            case .canceled:
-                break
             }
+        case .failed(let e):
+            error = e.localizedDescription
+        case .canceled:
+            break
         }
     }
 }

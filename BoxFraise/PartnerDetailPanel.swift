@@ -39,17 +39,19 @@ struct PartnerDetailPanel: View {
                         .lineSpacing(4)
                 }
 
-                VStack(spacing: 0) {
-                    if let hours = business.hours {
-                        detailRow("hours", value: hours)
+                if business.hours != nil || business.address != nil {
+                    VStack(spacing: 0) {
+                        if let hours = business.hours {
+                            detailRow("hours", value: hours)
+                        }
+                        if let address = business.address {
+                            detailRow("address", value: address)
+                        }
                     }
-                    if let address = business.address {
-                        detailRow("address", value: address)
-                    }
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
                 }
-                .background(c.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
 
                 Text("this business is not yet on box fraise.")
                     .font(.mono(11))

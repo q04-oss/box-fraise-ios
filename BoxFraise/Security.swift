@@ -125,7 +125,7 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
             return
         }
 
-        let hash = spkiHash(for: publicKeyData)
+        let hash = spkiHash(for: publicKey, keyData: publicKeyData)
 
         if Self.pinnedHashes.contains(hash) {
             completionHandler(.useCredential, URLCredential(trust: serverTrust))
@@ -134,14 +134,36 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
         }
     }
 
-    private func spkiHash(for keyData: Data) -> String {
-        // Prepend RSA-2048 SPKI header (adjust if cert uses EC key)
-        let rsaHeader = Data([
-            0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09,
-            0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
-            0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0f, 0x00,
-        ])
-        let spki = rsaHeader + keyData
+    private func spkiHash(for key: SecKey, keyData: Data) -> String {
+        let attrs = SecKeyCopyAttributes(key) as? [CFString: Any]
+        let keyType = attrs?[kSecAttrKeyType] as? String ?? ""
+        let keySize = attrs?[kSecAttrKeySizeInBits] as? Int ?? 0
+
+        let header: Data
+        if keyType == (kSecAttrKeyTypeRSA as String) && keySize == 2048 {
+            header = Data([0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09,
+                           0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
+                           0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0f, 0x00])
+        } else if keyType == (kSecAttrKeyTypeRSA as String) && keySize == 4096 {
+            header = Data([0x30, 0x82, 0x02, 0x22, 0x30, 0x0d, 0x06, 0x09,
+                           0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
+                           0x01, 0x05, 0x00, 0x03, 0x82, 0x02, 0x0f, 0x00])
+        } else if keyType == (kSecAttrKeyTypeECSECPrimeRandom as String) && keySize == 256 {
+            header = Data([0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
+                           0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a,
+                           0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03,
+                           0x42, 0x00])
+        } else if keyType == (kSecAttrKeyTypeECSECPrimeRandom as String) && keySize == 384 {
+            header = Data([0x30, 0x76, 0x30, 0x10, 0x06, 0x07, 0x2a, 0x86,
+                           0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b,
+                           0x81, 0x04, 0x00, 0x22, 0x03, 0x62, 0x00])
+        } else {
+            // Unknown key type — hash raw key bytes as fallback
+            let digest = SHA256.hash(data: keyData)
+            return Data(digest).base64EncodedString()
+        }
+
+        let spki = header + keyData
         let digest = SHA256.hash(data: spki)
         return Data(digest).base64EncodedString()
     }

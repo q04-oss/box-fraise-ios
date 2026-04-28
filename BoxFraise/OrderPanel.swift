@@ -79,6 +79,7 @@ struct OrderPanel: View {
                         state.orderState.varietyId = v.id
                         state.orderState.varietyName = v.name
                         state.orderState.priceCents = v.priceCents
+                        paymentSheet = nil; error = nil
                     }
                 }
             }
@@ -100,6 +101,7 @@ struct OrderPanel: View {
                 ) {
                     state.orderState.chocolate = choc.id
                     state.orderState.chocolateName = choc.name
+                    paymentSheet = nil; error = nil
                 }
             }
         }
@@ -120,6 +122,7 @@ struct OrderPanel: View {
                 ) {
                     state.orderState.finish = fin.id
                     state.orderState.finishName = fin.name
+                    paymentSheet = nil; error = nil
                 }
             }
         }
@@ -348,20 +351,15 @@ struct OrderPanel: View {
         }
     }
 
-    private func handlePaymentResult(_ result: PaymentSheetResult) {
-        DispatchQueue.main.async {
-            switch result {
-            case .canceled:
-                self.paymentSheet = nil
-            case .failed(let e):
-                self.error = e.localizedDescription
-                self.paymentSheet = nil
-            case .completed:
-                self.paymentSheet = nil
-                Task { @MainActor in
-                    self.state.confirmedOrder = ConfirmedOrder(id: 0, status: "confirmed", varietyName: self.order.varietyName)
-                }
-            }
+    @MainActor private func handlePaymentResult(_ result: PaymentSheetResult) {
+        paymentSheet = nil
+        switch result {
+        case .canceled:
+            break
+        case .failed(let e):
+            error = e.localizedDescription
+        case .completed:
+            state.confirmedOrder = ConfirmedOrder(id: 0, status: "confirmed", varietyName: order.varietyName)
         }
     }
 }

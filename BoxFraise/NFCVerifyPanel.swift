@@ -134,7 +134,7 @@ struct NFCVerifyPanel: View {
         } onError: { msg in
             Task { @MainActor in
                 scanning = false
-                error = msg
+                error = msg.isEmpty ? nil : msg
             }
         }
         delegate = d
@@ -172,7 +172,11 @@ final class NFCScanDelegate: NSObject, NFCTagReaderSessionDelegate {
     }
 
     func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
-        if let e = error as? NFCReaderError, e.code == .readerSessionInvalidationErrorUserCanceled { return }
+        if let e = error as? NFCReaderError, e.code == .readerSessionInvalidationErrorUserCanceled {
+            // User cancelled — reset UI without showing an error
+            Task { @MainActor in onError("") }
+            return
+        }
         onError(error.localizedDescription)
     }
 
@@ -185,11 +189,10 @@ final class NFCScanDelegate: NSObject, NFCTagReaderSessionDelegate {
                 return
             }
             if case .miFare(let mifareTag) = tag {
-                // Read identifier as hex token
                 let token = mifareTag.identifier.map { String(format: "%02x", $0) }.joined()
-                session.alertMessage = "Box verified."
-                session.invalidate()
+                // Invalidate after backend verify completes, not here
                 self.onRead(token)
+                session.invalidate()
             } else {
                 session.invalidate(errorMessage: "Unsupported tag type.")
                 self.onError("Unsupported NFC tag.")

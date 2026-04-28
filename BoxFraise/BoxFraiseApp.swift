@@ -13,7 +13,7 @@ struct BoxFraiseApp: App {
             ContentView()
                 .environment(appState)
                 .fraiseTheme()
-                // Screenshot protection — blur on screenshot
+                // Screenshot telemetry — blur fires after capture, not before (cosmetic only)
                 .blur(radius: screenshotTaken ? 20 : 0)
                 .animation(.easeInOut(duration: 0.2), value: screenshotTaken)
                 // Re-auth banner

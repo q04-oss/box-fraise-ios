@@ -6,7 +6,7 @@ struct HomePanel: View {
     @State private var searchQuery = ""
 
     private var approvedPartnerCount: Int {
-        state.businesses.filter { $0.isApproved && $0.type == "partner" }.count
+        state.approvedBusinesses.filter { $0.type == "partner" }.count
     }
 
     private var dateLabel: String {
@@ -55,7 +55,7 @@ struct HomePanel: View {
                             .font(.mono(14))
                             .foregroundStyle(c.text)
                             .autocorrectionDisabled()
-                            .autocapitalization(.none)
+                            .textInputAutocapitalization(.never)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)

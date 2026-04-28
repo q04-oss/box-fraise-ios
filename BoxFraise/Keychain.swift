@@ -23,28 +23,38 @@ enum Keychain {
         guard let data = value.data(using: .utf8) else { return }
 
         // Build access control: biometry OR device passcode, this device only
-        var error: Unmanaged<CFError>?
+        var cfError: Unmanaged<CFError>?
         let access = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
             kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
             [.biometryAny, .or, .devicePasscode],
-            &error
+            &cfError
         )
-
-        var query: [CFString: Any] = [
-            kSecClass:           kSecClassGenericPassword,
-            kSecAttrService:     service,
-            kSecAttrAccount:     key,
-            kSecValueData:       data,
-            kSecAttrSynchronizable: kCFBooleanFalse as Any, // no iCloud sync
-        ]
-
-        if let access {
-            query[kSecAttrAccessControl] = access
+        if access == nil {
+            // Access control creation failed — fall back to storing without biometry
         }
 
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        var deleteQuery: [CFString: Any] = [
+            kSecClass:              kSecClassGenericPassword,
+            kSecAttrService:        service,
+            kSecAttrAccount:        key,
+            kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        if let access { deleteQuery[kSecAttrAccessControl] = access }
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        var addQuery: [CFString: Any] = [
+            kSecClass:              kSecClassGenericPassword,
+            kSecAttrService:        service,
+            kSecAttrAccount:        key,
+            kSecValueData:          data,
+            kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        if let access { addQuery[kSecAttrAccessControl] = access }
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status != errSecSuccess {
+            // Save failed (e.g., device has no passcode set) — token will not persist
+        }
     }
 
     // MARK: - Read

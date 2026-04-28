@@ -20,6 +20,13 @@
   <string>1</string>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>cydia</string>
+    <string>sileo</string>
+    <string>zbra</string>
+    <string>filza</string>
+  </array>
   <key>LSRequiresIPhoneOS</key>
   <true/>
   <key>NSUserNotificationUsageDescription</key>
