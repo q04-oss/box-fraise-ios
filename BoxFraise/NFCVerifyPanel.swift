@@ -120,6 +120,7 @@ struct NFCVerifyPanel: View {
             error = "NFC is not available on this device."
             return
         }
+        Haptics.impact(.medium)
         scanning = true
         error = nil
 
@@ -149,9 +150,11 @@ struct NFCVerifyPanel: View {
             let r = try await APIClient.shared.verifyNFC(token: nfcToken, userToken: userToken)
             scanning = false
             result = r
+            Haptics.notification(.success)
         } catch {
             scanning = false
             self.error = error.localizedDescription
+            Haptics.notification(.error)
         }
     }
 }

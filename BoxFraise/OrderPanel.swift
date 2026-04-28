@@ -76,6 +76,7 @@ struct OrderPanel: View {
                         trailing: v.priceFormatted,
                         selected: order.varietyId == v.id
                     ) {
+                        Haptics.selection()
                         state.orderState.varietyId = v.id
                         state.orderState.varietyName = v.name
                         state.orderState.priceCents = v.priceCents
@@ -99,6 +100,7 @@ struct OrderPanel: View {
                     trailing: "",
                     selected: order.chocolate == choc.id
                 ) {
+                    Haptics.selection()
                     state.orderState.chocolate = choc.id
                     state.orderState.chocolateName = choc.name
                     paymentSheet = nil; error = nil
@@ -120,6 +122,7 @@ struct OrderPanel: View {
                     trailing: "",
                     selected: order.finish == fin.id
                 ) {
+                    Haptics.selection()
                     state.orderState.finish = fin.id
                     state.orderState.finishName = fin.name
                     paymentSheet = nil; error = nil
@@ -154,7 +157,10 @@ struct OrderPanel: View {
                 Spacer()
                 HStack(spacing: 16) {
                     Button {
-                        if state.orderState.quantity > 1 { state.orderState.quantity -= 1 }
+                        if state.orderState.quantity > 1 {
+                            Haptics.impact(.light)
+                            state.orderState.quantity -= 1
+                        }
                     } label: {
                         Text("−").font(.mono(18)).foregroundStyle(c.text)
                     }
@@ -163,7 +169,10 @@ struct OrderPanel: View {
                         .foregroundStyle(c.text)
                         .frame(minWidth: 20, alignment: .center)
                     Button {
-                        if state.orderState.quantity < 24 { state.orderState.quantity += 1 }
+                        if state.orderState.quantity < 24 {
+                            Haptics.impact(.light)
+                            state.orderState.quantity += 1
+                        }
                     } label: {
                         Text("+").font(.mono(18)).foregroundStyle(c.text)
                     }
@@ -341,8 +350,10 @@ struct OrderPanel: View {
         case .canceled:
             break
         case .failed(let e):
+            Haptics.notification(.error)
             error = e.localizedDescription
         case .completed:
+            Haptics.notification(.success)
             state.confirmedOrder = ConfirmedOrder(id: 0, status: "confirmed", varietyName: order.varietyName)
         }
     }

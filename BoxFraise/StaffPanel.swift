@@ -226,6 +226,7 @@ struct StaffOrderRow: View {
                 Button {
                     guard !actionInFlight else { return }
                     actionInFlight = true
+                    Haptics.impact(.medium)
                     Task { @MainActor in
                         defer { actionInFlight = false }
                         await APIClient.shared.staffAction(next.action, orderId: order.id, pin: state.staffPin)

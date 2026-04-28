@@ -46,10 +46,11 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             if let biz = tappedBusiness {
                 BusinessCallout(business: biz) {
+                    Haptics.impact(.medium)
                     tappedBusiness = nil
                     animateToLocation(biz)
                     state.selectLocation(biz)
-                    selectedDetent = .fraction(0.55)
+                    selectedDetent = .fraction(0.5)
                 } onDismiss: {
                     tappedBusiness = nil
                 }
@@ -96,12 +97,12 @@ struct ContentView: View {
     }
 
     private func handlePinTap(_ biz: Business) {
+        Haptics.impact(.light)
         if biz.isApproved {
             tappedBusiness = biz
         } else {
-            // Unapproved — show partner detail in sheet
             state.panel = .partnerDetail(biz)
-            selectedDetent = .fraction(0.55)
+            selectedDetent = .fraction(0.5)
         }
     }
 

@@ -183,6 +183,7 @@ struct PopupCard: View {
         joining = nil
         switch result {
         case .completed:
+            Haptics.notification(.success)
             Task { @MainActor in
                 guard let token = Keychain.userToken else { return }
                 do {

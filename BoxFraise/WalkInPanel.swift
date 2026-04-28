@@ -220,8 +220,12 @@ struct WalkInPanel: View {
     @MainActor private func handlePayment(_ result: PaymentSheetResult) {
         paymentSheet = nil
         switch result {
-        case .completed: confirmed = true
-        case .failed(let e): error = e.localizedDescription
+        case .completed:
+            Haptics.notification(.success)
+            confirmed = true
+        case .failed(let e):
+            Haptics.notification(.error)
+            error = e.localizedDescription
         case .canceled: break
         }
     }
