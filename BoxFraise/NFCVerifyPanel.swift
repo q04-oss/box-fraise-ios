@@ -87,19 +87,26 @@ struct NFCVerifyPanel: View {
 
                 // fraise.chat identity — first time
                 if let email = r.fraiseChatEmail {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("your fraise identity")
-                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
-                        Text(email)
-                            .font(.mono(14)).foregroundStyle(c.text)
-                            .lineLimit(1).minimumScaleFactor(0.7)
+                    Button { state.panel = .fraiseInbox } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("your fraise identity")
+                                    .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                                Text(email)
+                                    .font(.mono(14)).foregroundStyle(c.text)
+                                    .lineLimit(1).minimumScaleFactor(0.7)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 11)).foregroundStyle(Color(hex: "4CAF50").opacity(0.6))
+                        }
+                        .padding(Spacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(c.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+                            Color(hex: "4CAF50").opacity(0.4), lineWidth: 0.5))
                     }
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(c.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                        Color(hex: "4CAF50").opacity(0.4), lineWidth: 0.5))
                 }
 
                 // Unlocked features

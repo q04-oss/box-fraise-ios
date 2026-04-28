@@ -92,6 +92,12 @@ extension BoxFraiseApp {
             appState.panel = .nfcVerify
         case "/history":
             appState.panel = appState.isSignedIn ? .orderHistory : .auth
+        case "/standing-orders":
+            appState.panel = appState.isSignedIn ? .standingOrders : .auth
+        case "/inbox":
+            appState.panel = appState.isSignedIn ? .fraiseInbox : .auth
+        case "/referrals":
+            appState.panel = appState.isSignedIn ? .referrals : .auth
         default:
             break
         }

@@ -255,6 +255,38 @@ struct WalkInItem: Codable, Identifiable, PricedItem {
     let stockRemaining: Int?
 }
 
+// MARK: - Fraise inbox
+
+struct FraiseMessage: Codable, Identifiable {
+    let id: Int
+    let fromEmail: String
+    let fromName: String?
+    let subject: String?
+    let body: String
+    let receivedAt: String
+    let readAt: String?
+
+    var isRead: Bool { readAt != nil }
+    var senderLabel: String { fromName ?? fromEmail }
+}
+
+// MARK: - Referrals
+
+struct ReferralInfo: Codable {
+    let code: String?
+    let referralUrl: String?
+    let referrals: [ReferralEntry]
+}
+
+struct ReferralEntry: Codable, Identifiable {
+    let id: Int
+    let refereeName: String?
+    let createdAt: String
+    let completedAt: String?
+
+    var isCompleted: Bool { completedAt != nil }
+}
+
 // MARK: - Standing orders
 
 struct StandingOrder: Codable, Identifiable {
@@ -272,7 +304,8 @@ struct StandingOrder: Codable, Identifiable {
 // MARK: - Panel
 
 enum Panel: Equatable {
-    case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn, standingOrders
+    case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
+    case standingOrders, fraiseInbox, referrals
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
@@ -281,7 +314,9 @@ enum Panel: Equatable {
              (.popups, .popups), (.order, .order),
              (.orderHistory, .orderHistory), (.staff, .staff),
              (.nfcVerify, .nfcVerify), (.walkIn, .walkIn),
-             (.standingOrders, .standingOrders): return true
+             (.standingOrders, .standingOrders),
+             (.fraiseInbox, .fraiseInbox),
+             (.referrals, .referrals): return true
         case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id
         default: return false
         }

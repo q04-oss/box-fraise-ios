@@ -30,6 +30,8 @@
 		B001000000000018 /* AppAttest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001B /* AppAttest.swift */; };
 		B001000000000019 /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001C /* LiveActivityBridge.swift */; };
 		B00100000000001A /* StandingOrdersPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001D /* StandingOrdersPanel.swift */; };
+		B00100000000001B /* FraiseInboxPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001E /* FraiseInboxPanel.swift */; };
+		B00100000000001C /* ReferralsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001F /* ReferralsPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +61,8 @@
 		A00100000000001B /* AppAttest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAttest.swift; sourceTree = "<group>"; };
 		A00100000000001C /* LiveActivityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
 		A00100000000001D /* StandingOrdersPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingOrdersPanel.swift; sourceTree = "<group>"; };
+		A00100000000001E /* FraiseInboxPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FraiseInboxPanel.swift; sourceTree = "<group>"; };
+		A00100000000001F /* ReferralsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralsPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -88,6 +92,8 @@
 				A00100000000001B /* AppAttest.swift */,
 				A00100000000001C /* LiveActivityBridge.swift */,
 				A00100000000001D /* StandingOrdersPanel.swift */,
+				A00100000000001E /* FraiseInboxPanel.swift */,
+				A00100000000001F /* ReferralsPanel.swift */,
 				A001000000000003 /* BoxFraise.entitlements */,
 				A001000000000004 /* Info.plist */,
 			);
@@ -189,6 +195,8 @@
 				B001000000000018 /* AppAttest.swift in Sources */,
 				B001000000000019 /* LiveActivityBridge.swift in Sources */,
 				B00100000000001A /* StandingOrdersPanel.swift in Sources */,
+				B00100000000001B /* FraiseInboxPanel.swift in Sources */,
+				B00100000000001C /* ReferralsPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

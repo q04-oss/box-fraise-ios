@@ -182,6 +182,7 @@ struct HomePanel: View {
 
                     Spacer(minLength: 40)
                 }
+                .refreshable { await state.refresh() }
             } else {
                 if searchResults.isEmpty {
                     VStack {

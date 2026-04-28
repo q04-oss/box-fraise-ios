@@ -144,11 +144,14 @@ struct ContentView: View {
         .onChange(of: state.pendingScreen) { _, screen in
             guard let screen else { return }
             switch screen {
-            case "order-history": state.panel = .orderHistory
-            case "popups":        state.panel = .popups
-            case "profile":       state.panel = state.isSignedIn ? .profile : .auth
-            case "verify":        state.panel = .nfcVerify
-            default:              state.panel = .home
+            case "order-history":    state.panel = .orderHistory
+            case "popups":           state.panel = .popups
+            case "profile":          state.panel = state.isSignedIn ? .profile : .auth
+            case "verify":           state.panel = .nfcVerify
+            case "standingOrders":   state.panel = state.isSignedIn ? .standingOrders : .auth
+            case "inbox":            state.panel = state.isSignedIn ? .fraiseInbox : .auth
+            case "referrals":        state.panel = state.isSignedIn ? .referrals : .auth
+            default:                 state.panel = .home
             }
             state.pendingScreen = nil
             selectedDetent = .fraction(0.55)
@@ -262,6 +265,8 @@ struct SheetContent: View {
         case .nfcVerify:           return "nfcVerify"
         case .walkIn:              return "walkIn"
         case .standingOrders:      return "standingOrders"
+        case .fraiseInbox:         return "fraiseInbox"
+        case .referrals:           return "referrals"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
         }
     }
@@ -293,6 +298,8 @@ struct SheetContent: View {
         case .nfcVerify:           NFCVerifyPanel()
         case .walkIn:              WalkInPanel()
         case .standingOrders:      StandingOrdersPanel()
+        case .fraiseInbox:         FraiseInboxPanel()
+        case .referrals:           ReferralsPanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
         }
     }

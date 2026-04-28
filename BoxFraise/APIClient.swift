@@ -210,6 +210,30 @@ actor APIClient {
             body: ["rating": rating], token: token)
     }
 
+    // MARK: - Fraise inbox
+
+    func fetchFraiseMessages(token: String) async throws -> [FraiseMessage] {
+        try await request("/fraise-chat/messages", token: token)
+    }
+
+    func markMessageRead(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/fraise-chat/messages/\(id)/read", method: "POST", token: token)
+    }
+
+    func deleteMessage(id: Int, token: String) async throws {
+        let _: OKResponse = try await request("/fraise-chat/messages/\(id)", method: "DELETE", token: token)
+    }
+
+    // MARK: - Referrals
+
+    func fetchReferralInfo(token: String) async throws -> ReferralInfo {
+        try await request("/referrals/my-code", token: token)
+    }
+
+    func applyReferralCode(_ code: String, token: String) async throws {
+        let _: OKResponse = try await request("/referrals/apply", method: "POST", body: ["code": code], token: token)
+    }
+
     // MARK: - Standing orders
 
     func fetchStandingOrders(token: String) async throws -> [StandingOrder] {

@@ -40,7 +40,9 @@ struct ProfilePanel: View {
                     if user.verified == true {
                         VStack(spacing: 0) {
                             if let email = user.fraiseChatEmail {
-                                socialRow(email, label: "identity", icon: "at")
+                                Button { state.panel = .fraiseInbox } label: {
+                                    socialRow(email, label: "inbox", icon: "at")
+                                }
                             }
                             if let tier = state.socialAccess?.tier ?? user.socialTier {
                                 socialRow(tier.replacingOccurrences(of: "_", with: " ").lowercased(),
@@ -62,6 +64,9 @@ struct ProfilePanel: View {
                     VStack(spacing: 0) {
                         profileLink("order history", icon: "clock.arrow.circlepath") {
                             state.panel = .orderHistory
+                        }
+                        profileLink("referrals", icon: "person.2") {
+                            state.panel = .referrals
                         }
                         profileLink("verify pickup", icon: "checkmark.seal") {
                             state.panel = .nfcVerify
