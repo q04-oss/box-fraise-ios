@@ -62,13 +62,14 @@ struct ContentView: View {
         .sheet(isPresented: .constant(true)) {
             SheetContent()
                 .presentationDetents(
-                    [.fraction(0.08), .fraction(0.55), .large],
+                    [.fraction(0.12), .fraction(0.5), .large],
                     selection: $selectedDetent
                 )
-                .presentationDragIndicator(.visible)
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(.regularMaterial)
                 .presentationBackgroundInteraction(.enabled(upThrough: .large))
                 .interactiveDismissDisabled()
-                .presentationCornerRadius(16)
+                .presentationCornerRadius(24)
         }
         .onChange(of: state.activeLocation) { _, loc in
             guard let loc, let coord = loc.coordinate else { return }

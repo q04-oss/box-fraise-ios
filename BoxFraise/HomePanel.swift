@@ -35,54 +35,72 @@ struct HomePanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let loc = state.activeLocation, loc.isApproved {
-                // Location selected strip
-                Button {
-                    state.clearLocation()
-                } label: {
-                    Text(loc.name.lowercased())
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundStyle(c.text)
-                        .tracking(0.3)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                }
-            } else {
-                // Search row
-                HStack(spacing: 10) {
+            // ── Search pill + profile button ──────────────────────────────────
+            HStack(spacing: 10) {
+                if let loc = state.activeLocation, loc.isApproved {
+                    Button { state.clearLocation() } label: {
+                        HStack {
+                            Text(loc.name.lowercased())
+                                .font(.system(size: 14, design: .serif))
+                                .foregroundStyle(c.text)
+                                .tracking(0.3)
+                            Spacer()
+                            Text("×")
+                                .font(.mono(16))
+                                .foregroundStyle(c.muted)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(c.searchBg)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().strokeBorder(c.border, lineWidth: 0.5))
+                    }
+                } else {
                     HStack {
-                        TextField("for better taste", text: $searchQuery)
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13))
+                            .foregroundStyle(c.muted)
+                        TextField("search", text: $searchQuery)
                             .font(.mono(14))
                             .foregroundStyle(c.text)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
+                        if !searchQuery.isEmpty {
+                            Button { searchQuery = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(c.muted)
+                            }
+                        }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .background(c.searchBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
-
-                    Button {
-                        // fraise.chat — placeholder
-                    } label: {
-                        Text("🍓")
-                            .font(.system(size: 17))
-                            .frame(width: 42, height: 42)
-                            .background(c.searchBg)
-                            .clipShape(Circle())
-                            .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
-                    }
+                    .clipShape(Capsule())
+                    .overlay(Capsule().strokeBorder(c.border, lineWidth: 0.5))
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
+
+                // Profile button
+                Button {
+                    state.panel = state.isSignedIn ? .profile : .auth
+                } label: {
+                    Circle()
+                        .fill(c.searchBg)
+                        .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
+                        .frame(width: 42, height: 42)
+                        .overlay(
+                            Text(state.user?.displayName?.prefix(1).uppercased() ?? "·")
+                                .font(.mono(13, weight: .medium))
+                                .foregroundStyle(c.muted)
+                        )
+                }
             }
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
-            Divider().foregroundStyle(c.border).opacity(0.6)
-
+            // ── Content ───────────────────────────────────────────────────────
             if searchQuery.isEmpty {
-                // Ambient discover view
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(dateLabel)
@@ -99,9 +117,7 @@ struct HomePanel: View {
                                 .font(.mono(10))
                                 .foregroundStyle(c.muted)
                                 .tracking(1)
-                            Button {
-                                state.panel = .popups
-                            } label: {
+                            Button { state.panel = .popups } label: {
                                 Text("popups")
                                     .font(.mono(10))
                                     .foregroundStyle(c.muted)
@@ -115,9 +131,7 @@ struct HomePanel: View {
                         .padding(.top, 2)
 
                         if let nearest = state.nearestCollection {
-                            Button {
-                                state.selectLocation(nearest)
-                            } label: {
+                            Button { state.selectLocation(nearest) } label: {
                                 Text("\(nearest.name.lowercased())  →")
                                     .font(.system(size: 14, design: .serif))
                                     .foregroundStyle(c.text)
@@ -127,12 +141,11 @@ struct HomePanel: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Spacing.md)
-                    .padding(.top, 8)
+                    .padding(.top, 4)
 
                     Spacer(minLength: 40)
                 }
             } else {
-                // Search results
                 if searchResults.isEmpty {
                     VStack {
                         Text("nothing matched — try a neighbourhood or name")
@@ -175,24 +188,6 @@ struct HomePanel: View {
                     }
                 }
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            // Profile button
-            Button {
-                state.panel = state.isSignedIn ? .profile : .auth
-            } label: {
-                Circle()
-                    .strokeBorder(c.border, lineWidth: 0.5)
-                    .background(Circle().fill(c.searchBg))
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Text(state.user?.displayName?.prefix(1).uppercased() ?? "·")
-                            .font(.mono(12, weight: .medium))
-                            .foregroundStyle(c.muted)
-                    )
-            }
-            .padding(.trailing, Spacing.md)
-            .padding(.top, 12)
         }
     }
 }
