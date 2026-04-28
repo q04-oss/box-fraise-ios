@@ -117,17 +117,65 @@ struct BusinessPin: View {
     let isCollection: Bool
 
     var body: some View {
-        if isCollection {
-            Circle()
-                .fill(approved ? Color(hex: "1C1C1E") : Color.gray.opacity(0.4))
-                .frame(width: 12, height: 12)
-                .shadow(color: .black.opacity(approved ? 0.3 : 0.1), radius: 3, y: 1)
+        if approved && isCollection {
+            // Large two-tone teardrop — primary destination
+            Teardrop()
+                .fill(Color(hex: "1C1C1E"))
+                .frame(width: 22, height: 28)
+                .overlay {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 7, height: 7)
+                        .offset(y: -3)
+                }
+                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+        } else if approved {
+            // Medium outlined teardrop — approved partner
+            Teardrop()
+                .stroke(Color(hex: "1C1C1E"), lineWidth: 1.5)
+                .background(Teardrop().fill(Color.white))
+                .frame(width: 16, height: 20)
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
         } else {
-            Circle()
-                .strokeBorder(approved ? Color(hex: "1C1C1E") : Color.gray.opacity(0.4), lineWidth: 1.5)
-                .background(Circle().fill(Color.white.opacity(approved ? 1 : 0.5)))
-                .frame(width: 10, height: 10)
+            // Small outlined teardrop — unapproved/example
+            Teardrop()
+                .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+                .background(Teardrop().fill(Color.white.opacity(0.7)))
+                .frame(width: 13, height: 17)
         }
+    }
+}
+
+struct Teardrop: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width, h = rect.height
+        let cx = w / 2
+        // Circle radius occupies top ~70% of height
+        let r = w * 0.46
+        let cy = r + 1
+        // Start at tip (bottom centre)
+        path.move(to: CGPoint(x: cx, y: h))
+        // Left side tangent up to circle
+        path.addQuadCurve(
+            to: CGPoint(x: cx - r, y: cy),
+            control: CGPoint(x: cx - r * 0.8, y: h * 0.7)
+        )
+        // Top arc (circle)
+        path.addArc(
+            center: CGPoint(x: cx, y: cy),
+            radius: r,
+            startAngle: .degrees(180),
+            endAngle: .degrees(0),
+            clockwise: false
+        )
+        // Right side tangent down to tip
+        path.addQuadCurve(
+            to: CGPoint(x: cx, y: h),
+            control: CGPoint(x: cx + r * 0.8, y: h * 0.7)
+        )
+        path.closeSubpath()
+        return path
     }
 }
 
