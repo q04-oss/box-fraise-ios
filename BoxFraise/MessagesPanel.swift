@@ -11,6 +11,9 @@ struct MessagesPanel: View {
 
     private var totalUnread: Int { threads.reduce(0) { $0 + $1.unreadCount } }
 
+    private var dorotkaThread: MessageThread? { threads.first { $0.isDorotkaThread } }
+    private var otherThreads: [MessageThread] { threads.filter { !$0.isDorotkaThread } }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -64,7 +67,15 @@ struct MessagesPanel: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(threads) { thread in
+                        if let d = dorotkaThread {
+                            DorotkaRow(thread: d) {
+                                selectedThread = d
+                                state.panel = .messages
+                            }
+                            Divider().foregroundStyle(c.border).opacity(0.4)
+                                .padding(.leading, 72)
+                        }
+                        ForEach(otherThreads) { thread in
                             ThreadRow(thread: thread, myUserId: state.user?.id ?? 0) {
                                 selectedThread = thread
                                 state.panel = .messages
@@ -162,6 +173,65 @@ private struct ThreadRow: View {
                         Text(preview)
                             .font(.mono(11)).foregroundStyle(c.muted)
                             .lineLimit(1)
+                        Spacer()
+                        if thread.unreadCount > 0 {
+                            Text("\(thread.unreadCount)")
+                                .font(.mono(9)).foregroundStyle(c.background)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(c.text).clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+        }
+    }
+
+    private func shortTime(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+        if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
+        return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+// MARK: - Dorotka pinned row
+
+private struct DorotkaRow: View {
+    @Environment(\.fraiseColors) private var c
+    let thread: MessageThread
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(c.text)
+                        .frame(width: 48, height: 48)
+                    Text("D")
+                        .font(.system(size: 18, design: .serif))
+                        .foregroundStyle(c.background)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("dorotka")
+                            .font(.mono(13, weight: thread.unreadCount > 0 ? .medium : .regular))
+                            .foregroundStyle(c.text)
+                        Text("co-op")
+                            .font(.mono(8)).foregroundStyle(c.background)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(c.muted).clipShape(Capsule())
+                        Spacer()
+                        if let at = thread.lastMessageAt {
+                            Text(shortTime(at))
+                                .font(.mono(9)).foregroundStyle(c.muted)
+                        }
+                    }
+                    HStack(spacing: 4) {
+                        Text(thread.lastType == "official" ? "dorotka@fraise.chat" : "🔒 encrypted")
+                            .font(.mono(11)).foregroundStyle(c.muted).lineLimit(1)
                         Spacer()
                         if thread.unreadCount > 0 {
                             Text("\(thread.unreadCount)")

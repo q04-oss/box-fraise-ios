@@ -298,9 +298,11 @@ struct MessageThread: Codable, Identifiable {
     let unreadCount: Int
     let metAt: String?
     let isShop: Bool?
+    let isDorotka: Bool?
 
     var id: Int { contactId }
     var isBusiness: Bool { isShop == true }
+    var isDorotkaThread: Bool { isDorotka == true }
 }
 
 struct PlatformMessage: Codable, Identifiable {
