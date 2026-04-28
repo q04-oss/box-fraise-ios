@@ -129,7 +129,7 @@ struct OfflineBanner: View {
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 10)
-        .background(Color(hex: "1C1C1E"))
+        .background(Color(.black))
         .fraiseTheme()
     }
 }

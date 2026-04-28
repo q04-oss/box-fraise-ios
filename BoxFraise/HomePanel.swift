@@ -334,7 +334,7 @@ private struct DateNightCard: View {
                         Text(biz.lowercased())
                             .font(.system(size: 13, design: .serif)).foregroundStyle(c.muted)
                     }
-                    Text(formatDate(invitation.eventDate))
+                    Text(FraiseDateFormatter.short(invitation.eventDate))
                         .font(.mono(9)).foregroundStyle(c.muted)
                 }
                 Spacer()
@@ -349,12 +349,6 @@ private struct DateNightCard: View {
         }
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
-    }
 }
 
 // MARK: - Akène pending invitation card
@@ -395,9 +389,7 @@ private struct AkenePendingCard: View {
     }
 
     private func expiryLabel(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         let hours = Int(date.timeIntervalSinceNow / 3600)
         if hours <= 0 { return "expired" }
         return hours < 24 ? "\(hours)h to respond" : "\(hours / 24)d to respond"

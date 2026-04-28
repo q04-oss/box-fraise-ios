@@ -141,7 +141,19 @@ enum AppSecurity {
         #endif
         denyDebuggerAttach()
         if isDebuggerAttached() { exit(0) }
-        _ = isJailbroken()
+        // Fast checks (file paths, sandbox write, URL schemes, dylibs) run inline.
+        // hasFridaServer() opens a socket with a 300 ms timeout — runs on a background
+        // thread so it never stalls the launch path. The lock ensures only one winner.
+        #if !targetEnvironment(simulator)
+        if hasJailbreakFiles() || canWriteOutsideSandbox()
+            || hasSuspiciousURLSchemes() || hasDynamicLibraryInjection()
+            || hasInjectedDylibs() {
+            exit(0)
+        }
+        Task.detached(priority: .background) {
+            if hasFridaServer() { exit(0) }
+        }
+        #endif
     }
 
     // Re-evaluates against the in-process cache. Never reads from UserDefaults —

@@ -226,7 +226,7 @@ private struct ThreadRow: View {
                             .foregroundStyle(c.text)
                         Spacer()
                         if let at = thread.lastMessageAt {
-                            Text(shortTime(at))
+                            Text(FraiseDateFormatter.thread(at))
                                 .font(.mono(9)).foregroundStyle(c.muted)
                         }
                     }
@@ -252,10 +252,8 @@ private struct ThreadRow: View {
         }
     }
 
-    private func shortTime(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+    private func FraiseDateFormatter.thread(_ iso: String) -> String {
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
         return date.formatted(.dateTime.month(.abbreviated).day())
     }
@@ -353,7 +351,7 @@ extension MessagesPanel {
                     .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
             }
             HStack(spacing: 12) {
-                Label(formatDate(inv.eventDate), systemImage: "calendar")
+                Label(FraiseDateFormatter.compact(inv.eventDate), systemImage: "calendar")
                     .font(.mono(9)).foregroundStyle(c.muted)
                 Label("meal covered", systemImage: "fork.knife")
                     .font(.mono(9)).foregroundStyle(c.muted)
@@ -412,12 +410,6 @@ extension MessagesPanel {
             promo.isUnread ? c.text.opacity(0.15) : c.border, lineWidth: 0.5))
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
-    }
 }
 
 // MARK: - Memory prompt sheet
@@ -538,7 +530,7 @@ private struct DateInvitationSheet: View {
                             Text(desc.lowercased()).font(.mono(13)).foregroundStyle(c.muted)
                                 .lineSpacing(3).padding(.top, 4)
                         }
-                        Label(formatDate(invitation.eventDate), systemImage: "calendar")
+                        Label(FraiseDateFormatter.event(invitation.eventDate), systemImage: "calendar")
                             .font(.mono(11)).foregroundStyle(c.muted)
                         Label("meal fully covered by the business", systemImage: "fork.knife")
                             .font(.mono(11)).foregroundStyle(c.muted)
@@ -601,12 +593,6 @@ private struct DateInvitationSheet: View {
         responding = false
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.weekday(.wide).month(.wide).day().hour().minute())
-    }
 }
 
 // MARK: - Compose sheet
@@ -689,7 +675,7 @@ private struct ComposeSheet: View {
                                         Text(contact.name?.lowercased() ?? contact.userCode ?? "member")
                                             .font(.mono(13)).foregroundStyle(c.text)
                                         if let met = contact.metAt {
-                                            Text("met \(shortDate(met))")
+                                            Text("met \(FraiseDateFormatter.medium(met))")
                                                 .font(.mono(9)).foregroundStyle(c.muted)
                                         }
                                     }
@@ -715,10 +701,8 @@ private struct ComposeSheet: View {
         }
     }
 
-    private func shortDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+    private func FraiseDateFormatter.medium(_ iso: String) -> String {
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         return date.formatted(.dateTime.month(.wide).day())
     }
 }
@@ -752,7 +736,7 @@ private struct DorotkaRow: View {
                             .background(c.muted).clipShape(Capsule())
                         Spacer()
                         if let at = thread.lastMessageAt {
-                            Text(shortTime(at))
+                            Text(FraiseDateFormatter.thread(at))
                                 .font(.mono(9)).foregroundStyle(c.muted)
                         }
                     }
@@ -773,10 +757,8 @@ private struct DorotkaRow: View {
         }
     }
 
-    private func shortTime(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+    private func FraiseDateFormatter.thread(_ iso: String) -> String {
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
         return date.formatted(.dateTime.month(.abbreviated).day())
     }

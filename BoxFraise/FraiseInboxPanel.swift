@@ -131,7 +131,7 @@ private struct MessageRow: View {
                                 .foregroundStyle(c.text)
                                 .lineLimit(1)
                             Spacer()
-                            Text(shortDate(message.receivedAt))
+                            Text(FraiseDateFormatter.medium(message.receivedAt))
                                 .font(.mono(10)).foregroundStyle(c.muted)
                         }
                         if let subject = message.subject, !subject.isEmpty {
@@ -174,14 +174,4 @@ private struct MessageRow: View {
         }
     }
 
-    private func shortDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
-        let cal = Calendar.current
-        if cal.isDateInToday(date) {
-            return date.formatted(.dateTime.hour().minute())
-        }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
 }

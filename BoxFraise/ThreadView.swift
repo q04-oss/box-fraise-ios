@@ -81,8 +81,8 @@ struct ThreadView: View {
                             .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
                     } else if let met = thread.metAt {
                         Text(thread.isBusiness
-                             ? "collected here · \(shortDate(met))"
-                             : "met \(shortDate(met))")
+                             ? "collected here · \(FraiseDateFormatter.medium(met))"
+                             : "met \(FraiseDateFormatter.medium(met))")
                             .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
                     }
                 }
@@ -358,10 +358,8 @@ struct ThreadView: View {
 
     // MARK: - Helpers
 
-    private func shortDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+    private func FraiseDateFormatter.medium(_ iso: String) -> String {
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         return date.formatted(.dateTime.month(.wide).day())
     }
 
@@ -397,20 +395,12 @@ private struct MessageBubble: View {
 
     private var expiryLabel: String? {
         guard let exp = message.expiresAt else { return nil }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: exp) ?? ISO8601DateFormatter().date(from: exp) else { return nil }
+        guard let date = FraiseDateFormatter.date(from: exp) else { return nil }
         let days = Int(date.timeIntervalSinceNow / 86400)
         return days > 0 ? "expires in \(days)d" : nil
     }
 
-    private var timeLabel: String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: message.sentAt) ?? ISO8601DateFormatter().date(from: message.sentAt)
-        else { return "" }
-        return date.formatted(.dateTime.hour().minute())
-    }
+    private var timeLabel: String { FraiseDateFormatter.time(message.sentAt) }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 6) {

@@ -226,7 +226,7 @@ struct AkenePanel: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(p.quantity) \(p.quantity == 1 ? "akène" : "akènes")")
                                         .font(.mono(13)).foregroundStyle(c.text)
-                                    Text(formatDate(p.purchasedAt))
+                                    Text(FraiseDateFormatter.long(p.purchasedAt))
                                         .font(.mono(9)).foregroundStyle(c.muted)
                                 }
                                 Spacer()
@@ -329,7 +329,7 @@ struct AkenePanel: View {
             }
             HStack(spacing: 12) {
                 if let date = inv.eventDate {
-                    Label(formatDate(date), systemImage: "calendar")
+                    Label(FraiseDateFormatter.long(date), systemImage: "calendar")
                         .font(.mono(9)).foregroundStyle(c.muted)
                 } else {
                     Label(inv.eventStatus == "seated" ? "all seats filled · date tba"
@@ -371,7 +371,7 @@ struct AkenePanel: View {
                 Text(inv.title.lowercased())
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 if let date = inv.eventDate {
-                    Text(formatDate(date)).font(.mono(9)).foregroundStyle(c.muted)
+                    Text(FraiseDateFormatter.long(date)).font(.mono(9)).foregroundStyle(c.muted)
                 } else if let biz = inv.businessName {
                     Text(biz.lowercased()).font(.mono(9)).foregroundStyle(c.muted)
                 }
@@ -471,17 +471,9 @@ struct AkenePanel: View {
         String(clientSecret.split(separator: "_secret_").first ?? Substring(clientSecret))
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.month(.wide).day().year())
-    }
 
     private func expiryLabel(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
         let hours = Int(date.timeIntervalSinceNow / 3600)
         if hours <= 0 { return "expired" }
         return hours < 24 ? "\(hours)h left" : "\(hours / 24)d left"
@@ -530,7 +522,7 @@ private struct EventDetailSheet: View {
                         }
                         HStack(spacing: 16) {
                             if let date = invitation.eventDate {
-                                Label(formatDate(date), systemImage: "calendar")
+                                Label(FraiseDateFormatter.long(date), systemImage: "calendar")
                                     .font(.mono(10)).foregroundStyle(c.muted)
                             } else {
                                 let st = detail?.status ?? invitation.eventStatus
@@ -651,9 +643,7 @@ private struct EventDetailSheet: View {
     }
 
     private func addToCalendar(isoDate: String, title: String) {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: isoDate) ?? ISO8601DateFormatter().date(from: isoDate) else { return }
+        guard let date = FraiseDateFormatter.date(from: isoDate) else { return }
         let store = EKEventStore()
         store.requestAccess(to: .event) { granted, _ in
             guard granted else { return }
@@ -667,12 +657,6 @@ private struct EventDetailSheet: View {
         }
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.month(.wide).day().year())
-    }
 }
 
 // MARK: - Holder profile sheet
@@ -801,7 +785,7 @@ private struct StaffEventsSheet: View {
                     .foregroundStyle(event.acceptedCount >= event.capacity
                         ? Color.fraiseGreen : c.muted)
                 if let date = event.eventDate {
-                    Label(formatDate(date), systemImage: "calendar")
+                    Label(FraiseDateFormatter.long(date), systemImage: "calendar")
                         .font(.mono(10)).foregroundStyle(c.muted)
                 }
                 if let wl = event.waitlistCount, wl > 0 {
@@ -885,12 +869,6 @@ private struct StaffEventsSheet: View {
         loading = false
     }
 
-    private func formatDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return iso }
-        return date.formatted(.dateTime.month(.wide).day().year())
-    }
 }
 
 

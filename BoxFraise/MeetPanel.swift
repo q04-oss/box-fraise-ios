@@ -392,9 +392,7 @@ private struct PendingCard: View {
     }
 
     private var timeRemaining: String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let expires = f.date(from: connection.expiresAt) ?? ISO8601DateFormatter().date(from: connection.expiresAt) else { return "48h remaining" }
+        guard let expires = FraiseDateFormatter.date(from: connection.expiresAt) else { return "48h remaining" }
         let hours = Int(expires.timeIntervalSinceNow / 3600)
         return hours > 1 ? "\(hours)h remaining" : "< 1h remaining"
     }
@@ -430,7 +428,7 @@ private struct ContactCard: View {
             }
             Spacer()
             if let met = contact.metAt {
-                Text(shortDate(met)).font(.mono(10)).foregroundStyle(c.muted)
+                Text(FraiseDateFormatter.medium(met)).font(.mono(10)).foregroundStyle(c.muted)
             }
         }
         .padding(Spacing.md)
@@ -439,10 +437,4 @@ private struct ContactCard: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
     }
 
-    private func shortDate(_ iso: String) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
 }

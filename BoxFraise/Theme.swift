@@ -98,6 +98,70 @@ enum Spacing {
     static let xl: CGFloat = 32
 }
 
+// MARK: - Date formatting
+
+enum FraiseDateFormatter {
+    // Single pair of static formatters — ISO8601DateFormatter is thread-safe after configuration.
+    private static let fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let standard: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func date(from iso: String) -> Date? {
+        fractional.date(from: iso) ?? standard.date(from: iso)
+    }
+
+    /// "March 15, 2025" — purchase records, event history
+    static func long(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return iso }
+        return d.formatted(.dateTime.month(.wide).day().year())
+    }
+
+    /// "March 15" — met dates, short references
+    static func medium(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return "" }
+        return d.formatted(.dateTime.month(.wide).day())
+    }
+
+    /// "Mon, Mar 15" — compact date cards, no time
+    static func short(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return iso }
+        return d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    }
+
+    /// "Wednesday, March 15, 7:00 PM" — dinner invitations, formal events
+    static func event(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return iso }
+        return d.formatted(.dateTime.weekday(.wide).month(.wide).day().hour().minute())
+    }
+
+    /// "Mon, Mar 15, 7:00 PM" — compact event with time
+    static func compact(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return iso }
+        return d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
+    }
+
+    /// "7:00 PM" today · "Mar 15" any other day — thread row timestamps
+    static func thread(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return "" }
+        return Calendar.current.isDateInToday(d)
+            ? d.formatted(.dateTime.hour().minute())
+            : d.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    /// "7:00 PM" — message bubble timestamps
+    static func time(_ iso: String) -> String {
+        guard let d = date(from: iso) else { return "" }
+        return d.formatted(.dateTime.hour().minute())
+    }
+}
+
 // MARK: - View modifier — inject colors based on color scheme
 
 struct FraiseThemeModifier: ViewModifier {
