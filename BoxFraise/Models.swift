@@ -1,6 +1,13 @@
 import Foundation
 import CoreLocation
 
+// MARK: - String helpers
+
+private extension String {
+    // Converts an empty string to nil so optional-chaining reads naturally at call sites.
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
 // MARK: - Price formatting
 
 private protocol PricedItem { var priceCents: Int { get } }
@@ -10,7 +17,16 @@ private extension PricedItem {
 
 // MARK: - Domain enumerations
 
-enum BusinessType: String, Codable {
+enum MessageType: String, Codable, Sendable {
+    case text, variety, popup, node, broadcast, official
+    case other
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = MessageType(rawValue: raw) ?? .other
+    }
+}
+
+enum BusinessType: String, Codable, Sendable {
     case collection, partner
     case other
     init(from decoder: Decoder) throws {
@@ -19,7 +35,7 @@ enum BusinessType: String, Codable {
     }
 }
 
-enum FraiseObjectType: String, Codable {
+enum FraiseObjectType: String, Codable, Sendable {
     case variety, popup, node
     case other
     init(from decoder: Decoder) throws {
@@ -45,9 +61,11 @@ struct Business: Codable, Identifiable {
     let locationId: Int?
     let slug: String?
 
-    var isApproved: Bool    { approvedByAdmin ?? false }
-    var isCollection: Bool  { type == .collection }
-    var displayCity: String { city ?? neighbourhood ?? "" }
+    var isApproved: Bool     { approvedByAdmin ?? false }
+    var isCollection: Bool   { type == .collection }
+    // Returns nil when neither city nor neighbourhood is known — callers decide how to handle absence.
+    // Unapproved businesses are shown on the map as ghost pins — visible but not orderable.
+    var displayCity: String? { city ?? neighbourhood }
 
     var coordinate: CLLocationCoordinate2D? {
         guard let lat, let lng else { return nil }
@@ -58,7 +76,7 @@ struct Business: Codable, Identifiable {
 // MARK: - Auth
 
 struct AuthResponse: Codable {
-    let token: String
+    let token: FraiseToken
     let userId: Int
     let displayName: String?
     let verified: Bool?
@@ -75,7 +93,8 @@ struct BoxUser: Codable {
     let status: String?
 
     var initial: String {
-        displayName.flatMap { $0.first.map(String.init) }?.uppercased() ?? "·"
+        guard let name = displayName, let first = name.first else { return "·" }
+        return String(first).uppercased()
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -106,7 +125,7 @@ struct BoxUser: Codable {
 
 // MARK: - Popup
 
-struct FraisePopup: Codable, Identifiable {
+struct FraisePopup: Codable, Identifiable, PricedItem {
     let id: Int
     let title: String
     let description: String?
@@ -124,6 +143,7 @@ struct FraisePopup: Codable, Identifiable {
     var isThresholdMet: Bool { status == "threshold_met" }
     var isCancelled: Bool    { status == "cancelled" }
     var isClosed: Bool       { status == "closed" }
+    // 0.0 → 1.0, clamped. Drives the progress bar fill animation in PopupsPanel.
     var thresholdPct: Double { minSeats > 0 ? min(1.0, Double(seatsClaimed) / Double(minSeats)) : 0 }
 }
 
@@ -135,6 +155,8 @@ struct Variety: Codable, Identifiable, PricedItem {
     let description: String?
     let priceCents: Int
     let active: Bool?
+    // Server omits 'active' on legacy records added before the field existed — treat absence as active.
+    var isActive: Bool { active ?? true }
 }
 
 struct OrderState {
@@ -215,6 +237,15 @@ let FINISHES: [(id: String, name: String)] = [
 
 // MARK: - Order History
 
+enum PastOrderStatus: String, Codable, Sendable {
+    case paid, ready, preparing, collected, cancelled
+    case other
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PastOrderStatus(rawValue: raw) ?? .other
+    }
+}
+
 struct PastOrder: Codable, Identifiable {
     let id: Int
     let varietyName: String
@@ -229,10 +260,12 @@ struct PastOrder: Codable, Identifiable {
     let slotTime: String?
     let createdAt: String
 
-    var totalFormatted: String { String(format: "CA$%.2f", Double(totalCents) / 100.0) }
-    var isReady: Bool     { status == "ready" }
-    var isPaid: Bool      { status == "paid" || isReady }
-    var isCollected: Bool { status == "collected" }
+    var totalFormatted: String  { String(format: "CA$%.2f", Double(totalCents) / 100.0) }
+    // Slot is shown as "Mon Mar 15 · 7:00 PM" when both date and time are present.
+    var formattedSlot: String?  { [slotDate, slotTime].compactMap { $0 }.joined(separator: " · ").nilIfEmpty }
+    var isReady: Bool           { status == PastOrderStatus.ready.rawValue }
+    var isPaid: Bool            { status == PastOrderStatus.paid.rawValue || isReady }
+    var isCollected: Bool       { status == PastOrderStatus.collected.rawValue }
 }
 
 // MARK: - Staff Order
@@ -257,6 +290,13 @@ struct StaffOrder: Codable, Identifiable {
 
 // MARK: - NFC
 
+// Shared provenance fields between first-scan and re-scan results.
+struct NFCProvenance: Codable {
+    let farm: String?
+    let harvestDate: String?
+    let batchNotes: String?
+}
+
 struct NFCVerifyResult: Codable {
     let verified: Bool
     let varietyName: String?
@@ -274,6 +314,8 @@ struct NFCVerifyResult: Codable {
     let streakMilestone: Bool?
     let businessUserCode: String?
     let businessName: String?
+
+    var provenance: NFCProvenance { NFCProvenance(farm: farm, harvestDate: harvestDate, batchNotes: nil) }
 }
 
 struct NFCReorderResult: Codable {
@@ -288,6 +330,8 @@ struct NFCReorderResult: Codable {
     let batchNotes: String?
     let lastVariety: NFCLastVariety?
     let nextStandingOrder: NFCNextOrder?
+
+    var provenance: NFCProvenance { NFCProvenance(farm: farm, harvestDate: harvestDate, batchNotes: batchNotes) }
 }
 
 struct NFCLastVariety: Codable {
@@ -328,12 +372,16 @@ struct PendingConnection: Codable, Identifiable {
 
 struct FraiseContact: Codable, Identifiable {
     let id: Int
+    // contactId is the user ID of the contact; id is the connection record ID.
     let contactId: Int?
     let connectedAt: String
     let metAt: String?
     let name: String?
     let userCode: String?
     let verified: Bool?
+
+    // Resolves the user ID without requiring callers to handle the id/contactId ambiguity.
+    var resolvedContactId: Int { contactId ?? id }
 }
 
 // MARK: - Platform messaging
@@ -355,8 +403,11 @@ struct MessageThread: Codable, Identifiable {
 
     var id: Int { contactId }
     var isBusiness: Bool      { isShop }
-    var isDorotkaThread: Bool { isDorotka }
-    var hasUnread: Bool       { unreadCount > 0 }
+    var isDorotkaThread: Bool  { isDorotka }
+    // The three thread categories are mutually exclusive and exhaustive.
+    var isPersonalThread: Bool { !isBusiness && !isDorotkaThread }
+    // Server-computed — avoids fetching all messages just to count unread. Updated on markThreadRead().
+    var hasUnread: Bool        { unreadCount > 0 }
 
     private enum CodingKeys: String, CodingKey {
         case contactId, name, userCode, lastMessageId, lastMessageAt, lastEncrypted
@@ -396,7 +447,7 @@ struct MessageThread: Codable, Identifiable {
 
 // Pairs a message ID with its display snippet — enforces the invariant that
 // both fields are present when a reply context exists.
-struct ReplyContext {
+struct ReplyContext: Sendable {
     let messageId: Int
     let snippet: String
 }
@@ -407,6 +458,8 @@ struct PlatformMessage: Codable, Identifiable {
     let recipientId: Int
     let encryptedBody: String
     let x3dhSenderKey: String?
+    // Present when the sender used a one-time prekey during X3DH — consumed once by the recipient.
+    let oneTimePreKeyId: Int?
     let messageType: String
     let fraiseObject: FraiseObject?
     let sentAt: String
@@ -430,13 +483,17 @@ struct FraiseObject: Codable {
     let priceCents: Int?
 }
 
-struct UserKeyBundle: Codable {
+// Signal prekey material — must never appear in logs or crash reports.
+struct UserKeyBundle: Codable, CustomDebugStringConvertible {
     let userId: Int
     let identityKey: String
+    let identitySigningKey: String?       // Ed25519 public key; nil if server not yet updated
     let signedPreKey: String
     let signedPreKeySignature: String
     let oneTimePreKey: String?
     let oneTimePreKeyId: Int?
+
+    var debugDescription: String { "UserKeyBundle(userId: \(userId), [key material redacted])" }
 }
 
 // MARK: - Fraise inbox (legacy — superseded by MessagesPanel)
@@ -482,6 +539,7 @@ struct StandingOrder: Codable, Identifiable {
     let finish: String
     let status: String
 
+    // active / paused / cancelled are the only server-sent values. Anything else is a server bug.
     var isActive:    Bool { status == "active" }
     var isPaused:    Bool { status == "paused" }
     var isCancelled: Bool { status == "cancelled" }
@@ -522,19 +580,38 @@ struct AkeneInvitation: Codable, Identifiable {
     let eventStatus: String   // event lifecycle: inviting | seated | confirmed | completed
     let businessName: String?
 
+    // MARK: Your RSVP status
     var isPending:    Bool { status == "pending" }
     var isAccepted:   Bool { status == "accepted" }
     var isDeclined:   Bool { status == "declined" }
     var isWaitlisted: Bool { status == "waitlisted" }
-    var isCompleted:  Bool { eventStatus == "completed" }
+
+    // MARK: Event lifecycle status
     var isSeated:     Bool { eventStatus == "seated" }
     var isConfirmed:  Bool { eventStatus == "confirmed" }
+    var isCompleted:  Bool { eventStatus == "completed" }
+
+    // MARK: Availability
     var seatsLeft:    Int  { capacity - (acceptedCount ?? 0) }
     var isFull:       Bool { seatsLeft <= 0 }
-    // An invitation is expired when the response deadline has passed.
-    var isExpired:    Bool {
-        guard let iso = expiresAt, let date = FraiseDateFormatter.date(from: iso) else { return false }
+
+    // MARK: Timing
+    // Fail-closed: a non-nil but unparseable expiresAt is treated as expired rather than unexpired,
+    // so a corrupt date string never keeps a stale invitation visible.
+    var isExpired: Bool {
+        guard let iso = expiresAt else { return false }         // nil = no expiry
+        guard let date = FraiseDateFormatter.date(from: iso) else { return true } // unparseable = expired
         return date < Date()
+    }
+
+    // MARK: Display
+    /// Single human-readable status for cards and labels — avoids scattered inline switches.
+    var displayStatus: String {
+        if isWaitlisted { return "waitlisted" }
+        if isAccepted   { return isCompleted ? "attended" : "accepted" }
+        if isDeclined   { return "declined" }
+        if isExpired    { return "expired" }
+        return "invited"
     }
 }
 
@@ -666,6 +743,8 @@ enum Panel: Equatable, CustomStringConvertible {
     case standingOrders, messages, referrals, meet, akene
     case partnerDetail(Business)
 
+    // Used as the identity value for SwiftUI panel transitions — must be unique per case.
+    // Adding a new Panel case without updating description causes silent transition identity collisions.
     var description: String {
         switch self {
         case .home: return "home"

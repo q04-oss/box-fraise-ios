@@ -3,7 +3,7 @@ import UIKit
 
 // MARK: - Color palette
 
-struct FraiseColors {
+struct FraiseColors: Sendable {
     let background: Color
     let card: Color
     let text: Color
@@ -11,6 +11,8 @@ struct FraiseColors {
     let border: Color
     let searchBg: Color
 
+    // Card (#F7F5F2) is warm off-white against pure white (#FFFFFF) background — depth without
+    // harsh contrast. Border (#E5E1DA) is warm gray to avoid the blue-shifted system separator.
     static let light = FraiseColors(
         background: Color(hex: "FFFFFF"),
         card:       Color(hex: "F7F5F2"),
@@ -42,6 +44,8 @@ extension Color {
 // MARK: - Radius scale
 
 enum Radius {
+    static let sheet:  CGFloat = 24   // modal sheets — matches system sheet corner radius
+    static let callout: CGFloat = 20  // map callout cards — larger feels physical, not digital
     static let card:   CGFloat = 14   // cards, containers, panels
     static let button: CGFloat = 12   // full-width action buttons, list cards
     static let field:  CGFloat = 10   // text fields, search bars
@@ -53,6 +57,28 @@ enum Radius {
 enum Divide {
     static let row:     Double = 0.4  // between list rows
     static let section: Double = 0.6  // between distinct sections
+}
+
+// MARK: - Animation vocabulary
+
+extension Animation {
+    // Primary navigation transitions — panel changes, sheet content swaps.
+    static let fraiseSpring  = Animation.spring(response: 0.28, dampingFraction: 0.88)
+    // Physical element appearance — map callouts, banners, overlays.
+    // Longer response than fraiseSpring: presence should feel physical, not digital.
+    static let fraiseCallout = Animation.spring(response: 0.35)
+    // Skeleton shimmer — easeInOut so the pulse feels organic, not mechanical.
+    static let fraiseSkeleton = Animation.easeInOut(duration: 0.9).repeatForever(autoreverses: true)
+}
+
+// MARK: - Transition vocabulary
+
+extension AnyTransition {
+    // Primary panel insertion/removal used by SheetContent.
+    static let fraisePanelTransition = AnyTransition.asymmetric(
+        insertion: .opacity.combined(with: .offset(y: 18)),
+        removal:   .opacity.combined(with: .offset(y: -6))
+    )
 }
 
 extension Color {
@@ -113,8 +139,12 @@ enum FraiseDateFormatter {
         return f
     }()
 
+    /// Returns nil for any string that is not a valid ISO 8601 date.
     static func date(from iso: String) -> Date? {
-        fractional.date(from: iso) ?? standard.date(from: iso)
+        // Fast path: server sends ISO 8601 with fractional seconds in the vast majority of responses.
+        if let d = fractional.date(from: iso) { return d }
+        // Fallback: legacy responses omit fractional seconds.
+        return standard.date(from: iso)
     }
 
     /// "March 15, 2025" — purchase records, event history
@@ -186,6 +216,39 @@ struct StatusDot: View {
     }
 }
 
+// MARK: - Panel header
+
+/// Standard panel header used by every sheet panel.
+/// Eliminates the repeated HStack { FraiseBackButton; Spacer; Text; Spacer; trailing } pattern.
+struct PanelHeader<Trailing: View>: View {
+    @Environment(\.fraiseColors) private var c
+    let title: String
+    let onBack: () -> Void
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        HStack {
+            FraiseBackButton(action: onBack)
+            Spacer()
+            Text(title)
+                .font(.system(size: 14, design: .serif))
+                .foregroundStyle(c.text)
+            Spacer()
+            trailing()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 14)
+    }
+}
+
+extension PanelHeader where Trailing == Color {
+    init(title: String, onBack: @escaping () -> Void) {
+        self.title   = title
+        self.onBack  = onBack
+        self.trailing = { Color.clear.frame(width: 40) }
+    }
+}
+
 // MARK: - Haptics
 
 enum Haptics {
@@ -204,19 +267,24 @@ enum Haptics {
 
 // MARK: - Skeleton
 
+enum SkeletonStyle {
+    case narrow  // short label, e.g. a name
+    case wide    // long label, e.g. a title or order description
+}
+
 struct FraiseSkeletonRow: View {
     @State private var shimmer = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let wide: Bool
+    let style: SkeletonStyle
 
-    init(wide: Bool = false) { self.wide = wide }
+    init(style: SkeletonStyle = .narrow) { self.style = style }
 
     var body: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray.opacity(shimmer ? 0.12 : 0.07))
-                    .frame(width: wide ? 160 : 120, height: 13)
+                    .frame(width: style == .wide ? 160 : 120, height: 13)
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray.opacity(shimmer ? 0.08 : 0.04))
                     .frame(width: 80, height: 10)
@@ -231,9 +299,7 @@ struct FraiseSkeletonRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
             guard !reduceMotion else { shimmer = true; return }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                shimmer = true
-            }
+            withAnimation(.fraiseSkeleton) { shimmer = true }
         }
         .accessibilityHidden(true)
     }
@@ -298,6 +364,8 @@ struct FraiseSectionLabel: View {
 /// Uniform loading/error/data lifecycle for all data-fetching views.
 /// Replaces the `@State var loading: Bool` + silent-nil-on-error pattern.
 enum ViewState<T> {
+    /// Initial state before any load has been requested.
+    /// Distinct from .loading (in flight) and .loaded (complete).
     case idle
     case loading
     case loaded(T)
@@ -315,7 +383,8 @@ enum ViewState<T> {
 struct FraiseErrorView: View {
     @Environment(\.fraiseColors) private var c
     let message: String
-    var retry: (() async -> Void)? = nil
+    // @MainActor — retry always updates @State, which must happen on the main actor.
+    var retry: (@MainActor () async -> Void)? = nil
 
     var body: some View {
         VStack(spacing: Spacing.md) {

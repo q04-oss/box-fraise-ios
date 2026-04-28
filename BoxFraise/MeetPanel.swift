@@ -4,11 +4,10 @@ struct MeetPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var tab: Tab = .meet
+    // @State holds the MeetSession reference stable — SwiftUI does not copy reference types.
     @State private var session = MeetSession()
-    @State private var myToken: String?
     @State private var pending: [PendingConnection] = []
     @State private var contacts: [FraiseContact] = []
-    @State private var loading = false
     @State private var pulse = false
 
     enum Tab { case meet, requests, met }
@@ -19,7 +18,7 @@ struct MeetPanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                FraiseBackButton { state.navigate(to: .profile; session.stop() }
+                FraiseBackButton { state.navigate(to: .profile); session.stop() }
                 Spacer()
                 Text("met").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()
@@ -95,7 +94,7 @@ struct MeetPanel: View {
                 // CTA
                 switch session.state {
                 case .idle:
-                    Button { Task { await startMeet() } } label: {
+                    Button { Task { await beginMeetSession() } } label: {
                         HStack {
                             Text("start").font(.mono(13, weight: .medium)).foregroundStyle(.white)
                             Spacer()
@@ -109,7 +108,7 @@ struct MeetPanel: View {
                     .padding(.horizontal, Spacing.md)
 
                 case .found(let theirToken):
-                    Button { Task { await confirm(theirToken: theirToken) } } label: {
+                    Button { Task { await recordMeeting(theirToken: theirToken) } } label: {
                         HStack {
                             Image(systemName: "person.2.fill")
                                 .font(.system(size: 13)).foregroundStyle(.white)
@@ -136,7 +135,7 @@ struct MeetPanel: View {
                         }
                         Button {
                             session.stop()
-                            Task { await startMeet() }
+                            Task { await beginMeetSession() }
                         } label: {
                             Text("meet someone else")
                                 .font(.mono(11)).foregroundStyle(c.muted)
@@ -147,7 +146,7 @@ struct MeetPanel: View {
                     VStack(spacing: 10) {
                         Text(msg).font(.mono(11)).foregroundStyle(Color.fraiseRed)
                             .multilineTextAlignment(.center)
-                        Button { Task { await startMeet() } } label: {
+                        Button { Task { await beginMeetSession() } } label: {
                             Text("try again").font(.mono(11)).foregroundStyle(c.muted)
                         }
                     }
@@ -156,7 +155,6 @@ struct MeetPanel: View {
                 case .scanning, .starting, .confirming:
                     Button {
                         session.stop()
-                        myToken = nil
                     } label: {
                         Text("stop").font(.mono(11)).foregroundStyle(c.muted)
                     }
@@ -251,10 +249,9 @@ struct MeetPanel: View {
 
     private var stateIconColor: Color {
         switch session.state {
-        case .found:  return Color.fraiseGreen
-        case .done:   return Color.fraiseGreen
-        case .error:  return Color.fraiseRed
-        default:      return c.muted
+        case .found, .done:                          return Color.fraiseGreen
+        case .error:                                 return Color.fraiseRed
+        case .idle, .starting, .scanning, .confirming: return c.muted
         }
     }
 
@@ -284,24 +281,24 @@ struct MeetPanel: View {
 
     // MARK: - Actions
 
-    @MainActor private func startMeet() async {
+    @MainActor private func beginMeetSession() async {
         guard let token = Keychain.userToken else { return }
         session.stop()
-        myToken = nil
         do {
             let t = try await APIClient.shared.getMeetingToken(token: token)
-            myToken = t.token
             session.start(token: t.token)
         } catch {
             session.state = .error("couldn't get a meeting token")
         }
     }
 
-    @MainActor private func confirm(theirToken: String) async {
-        guard let token = Keychain.userToken, let myT = myToken else { return }
+    @MainActor private func recordMeeting(theirToken: String) async {
+        // session.myToken is set by session.start() — guard against calling before a session begins.
+        guard let token = Keychain.userToken, !session.myToken.isEmpty else { return }
         session.state = .confirming
         do {
-            try await APIClient.shared.recordMeeting(myToken: myT, theirToken: theirToken, token: token)
+            try await APIClient.shared.recordMeeting(
+                myToken: session.myToken, theirToken: theirToken, token: token)
             session.stop()
             session.state = .done
             Haptics.notification(.success)

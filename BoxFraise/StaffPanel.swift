@@ -12,8 +12,8 @@ struct StaffPanel: View {
 
     private var filteredOrders: [StaffOrder] {
         statusFilter == "all"
-            ? state.staffOrders
-            : state.staffOrders.filter { $0.status == statusFilter }
+            ? state.pendingStaffOrders
+            : state.pendingStaffOrders.filter { $0.status == statusFilter }
     }
 
     var body: some View {
@@ -39,7 +39,7 @@ struct StaffPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            if state.staffPin.isEmpty {
+            if state.staffAccessCode.isEmpty {
                 pinEntry
             } else {
                 ordersList
@@ -139,8 +139,8 @@ struct StaffPanel: View {
                 HStack(spacing: 6) {
                     ForEach(statuses, id: \.self) { s in
                         let cnt = s == "all"
-                            ? state.staffOrders.count
-                            : state.staffOrders.filter { $0.status == s }.count
+                            ? state.pendingStaffOrders.count
+                            : state.pendingStaffOrders.filter { $0.status == s }.count
                         Button { statusFilter = s } label: {
                             Text(cnt > 0 ? "\(s) \(cnt)" : s)
                                 .font(.mono(10))
@@ -185,8 +185,8 @@ struct StaffPanel: View {
         loading = true; error = nil
         do {
             let orders = try await APIClient.shared.fetchStaffOrders(pin: pin, token: token)
-            state.staffPin = pin
-            state.staffOrders = orders
+            state.staffAccessCode = pin
+            state.pendingStaffOrders = orders
         } catch {
             self.error = "invalid PIN"
         }
@@ -194,9 +194,9 @@ struct StaffPanel: View {
     }
 
     @MainActor private func load() async {
-        guard let token = Keychain.userToken, !state.staffPin.isEmpty else { return }
-        if let orders = try? await APIClient.shared.fetchStaffOrders(pin: state.staffPin, token: token) {
-            state.staffOrders = orders
+        guard let token = Keychain.userToken, !state.staffAccessCode.isEmpty else { return }
+        if let orders = try? await APIClient.shared.fetchStaffOrders(pin: state.staffAccessCode, token: token) {
+            state.pendingStaffOrders = orders
         }
     }
 }
@@ -300,10 +300,10 @@ struct StaffOrderCard: View {
                     Haptics.impact(.medium)
                     Task { @MainActor in
                         defer { actionInFlight = false }
-                        await APIClient.shared.staffAction(next.action, orderId: order.id, pin: state.staffPin)
+                        await APIClient.shared.staffAction(next.action, orderId: order.id, pin: state.staffAccessCode)
                         if let token = Keychain.userToken,
-                           let orders = try? await APIClient.shared.fetchStaffOrders(pin: state.staffPin, token: token) {
-                            state.staffOrders = orders
+                           let orders = try? await APIClient.shared.fetchStaffOrders(pin: state.staffAccessCode, token: token) {
+                            state.pendingStaffOrders = orders
                         }
                     }
                 } label: {

@@ -9,16 +9,21 @@ enum Keychain {
     // MARK: - Public API
 
     /// Read token — requires biometric auth on devices with a passcode set.
-    static var userToken: String? {
-        get { read(key: tokenKey) }
+    // Setting to a value replaces any existing token. Setting to nil deletes it.
+    // Both operations are atomic — there is no observable intermediate state.
+    static var userToken: FraiseToken? {
+        get { read(key: tokenKey).map(FraiseToken.init) }
         set {
-            if let value = newValue { save(key: tokenKey, value: value) }
+            if let value = newValue { save(key: tokenKey, value: value.rawValue) }
             else { delete(key: tokenKey) }
         }
     }
 
     // MARK: - Save
 
+    // kSecAttrSynchronizable: false appears on every query — explicitly disabling iCloud Keychain
+    // sync so the session token never migrates to another device. Omitting the key defaults to
+    // kSecAttrSynchronizableAny which would match both synced and non-synced items inconsistently.
     private static func save(key: String, value: String) {
         guard let data = value.data(using: .utf8) else { return }
 
@@ -95,22 +100,25 @@ enum Keychain {
 
     // Eliminates the `guard let token = Keychain.userToken else { return }` pattern
     // that otherwise appears at the top of every async panel function.
+    // Safe to call from any actor — SecItemCopyMatching is thread-safe per Apple documentation.
 
     /// Throwing variant — use with `try await` where callers handle errors.
     @discardableResult
-    static func withToken<T>(_ body: (String) async throws -> T) async throws -> T {
+    static func withToken<T>(_ body: (FraiseToken) async throws -> T) async throws -> T {
         guard let token = userToken else { throw APIError.unauthorized }
         return try await body(token)
     }
 
     /// Non-throwing variant — use where the call site already ignores errors.
-    static func withToken(_ body: (String) async -> Void) async {
+    static func withToken(_ body: (FraiseToken) async -> Void) async {
         guard let token = userToken else { return }
         await body(token)
     }
 
     // MARK: - Metadata (no biometry — for non-sensitive app keys like AppAttest ID)
 
+    // Return value is discarded at most call sites — callers that need write-failure handling
+    // should check the Bool (e.g., if App Attest key registration fails persistently).
     @discardableResult
     static func saveMetadata(key: String, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
@@ -127,6 +135,9 @@ enum Keychain {
         let add: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword, kSecAttrService: service,
             kSecAttrAccount: account, kSecValueData: data,
+            // WhenUnlockedThisDeviceOnly: metadata (App Attest IDs) is non-sensitive
+            // but must not be readable at rest (locked screen) or migrate to a new
+            // device via iCloud backup — a fresh attestation is required there anyway.
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecAttrSynchronizable: kCFBooleanFalse as Any,
         ]

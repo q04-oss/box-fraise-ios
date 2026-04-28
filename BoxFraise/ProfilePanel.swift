@@ -143,17 +143,17 @@ struct ProfilePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
-        .refreshable { await reloadProfile() }
+        .refreshable { await fetchProfile() }
         .sheet(isPresented: $showPreferences) {
             PreferencesSheet()
                 .fraiseTheme()
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
-        .task { await reloadProfile() }
+        .task { await fetchProfile() }
     }
 
-    @MainActor private func reloadProfile() async {
+    @MainActor private func fetchProfile() async {
         await state.refreshUser()
         await Keychain.withToken { token in
             earnings = try? await APIClient.shared.fetchEarnings(token: token)

@@ -25,7 +25,7 @@ struct PopupsPanel: View {
                 if let err = error {
                     Text(err)
                         .font(.mono(11))
-                        .foregroundStyle(Color(hex: "C0392B"))
+                        .foregroundStyle(Color.fraiseRed)
                         .onTapGesture { error = nil }
                 }
 
@@ -44,8 +44,8 @@ struct PopupsPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
-        .task { await state.refresh() }
-        .refreshable { await state.refresh() }
+        .task { await state.refreshMapData() }
+        .refreshable { await state.refreshMapData() }
     }
 }
 
@@ -60,8 +60,8 @@ struct PopupCard: View {
     @State private var paymentSheet: PaymentSheet?
 
     private var statusColor: Color {
-        if popup.isConfirmed    { return Color(hex: "388E3C") }
-        if popup.isThresholdMet { return Color(hex: "F57F17") }
+        if popup.isConfirmed    { return Color.fraiseGreen }
+        if popup.isThresholdMet { return Color.fraiseOrange }
         return c.muted
     }
 
@@ -109,10 +109,10 @@ struct PopupCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
-                            .foregroundStyle(Color(hex: "388E3C"))
+                            .foregroundStyle(Color.fraiseGreen)
                         Text(date)
                             .font(.mono(11))
-                            .foregroundStyle(Color(hex: "388E3C"))
+                            .foregroundStyle(Color.fraiseGreen)
                     }
                 }
             }
@@ -125,7 +125,7 @@ struct PopupCard: View {
                         Capsule().fill(c.searchBg).frame(height: 4)
                         Capsule()
                             .fill(popup.isThresholdMet || popup.isConfirmed
-                                  ? Color(hex: "4CAF50") : c.text)
+                                  ? Color.fraiseGreen : c.text)
                             .frame(width: geo.size.width * popup.thresholdPct, height: 4)
                             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: popup.thresholdPct)
                     }
@@ -150,10 +150,10 @@ struct PopupCard: View {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color(hex: "388E3C"))
+                        .foregroundStyle(Color.fraiseGreen)
                     Text("you're in")
                         .font(.mono(12))
-                        .foregroundStyle(Color(hex: "388E3C"))
+                        .foregroundStyle(Color.fraiseGreen)
                     Spacer()
                     Button {
                         Task { await cancelJoin() }
@@ -188,10 +188,10 @@ struct PopupCard: View {
                 HStack {
                     Image(systemName: "calendar.badge.checkmark")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color(hex: "388E3C"))
+                        .foregroundStyle(Color.fraiseGreen)
                     Text("scheduled")
                         .font(.mono(12))
-                        .foregroundStyle(Color(hex: "388E3C"))
+                        .foregroundStyle(Color.fraiseGreen)
                     Spacer()
                 }
                 .padding(.horizontal, Spacing.md)
@@ -199,8 +199,8 @@ struct PopupCard: View {
             }
         }
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(c.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
     }
 
     private var joinButton: some View {
@@ -226,6 +226,8 @@ struct PopupCard: View {
     @MainActor private func prepareJoin() async {
         guard let token = Keychain.userToken else { return }
         joining = popup.id; error = nil
+        // Only clear 'joining' if no payment sheet was created — if a sheet was created,
+        // the button stays disabled until the payment flow completes or is cancelled.
         defer { if paymentSheet == nil { joining = nil } }
         do {
             let response = try await APIClient.shared.joinPopup(id: popup.id, token: token)
@@ -248,7 +250,7 @@ struct PopupCard: View {
                 guard let token = Keychain.userToken else { return }
                 do {
                     try await APIClient.shared.confirmPopupJoin(id: popup.id, token: token)
-                    await state.refresh()
+                    await state.refreshMapData()
                 } catch { self.error = error.localizedDescription }
             }
         case .failed(let e):
@@ -265,7 +267,7 @@ struct PopupCard: View {
             try await APIClient.shared.cancelPopup(id: popup.id, token: token)
             Haptics.notification(.success)
             state.joinedPopupIds.remove(popup.id)
-            await state.refresh()
+            await state.refreshMapData()
         } catch {
             self.error = error.localizedDescription
         }

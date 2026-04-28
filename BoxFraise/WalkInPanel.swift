@@ -17,7 +17,7 @@ struct WalkInPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                FraiseBackButton { state.panel = state.isSignedIn ? .staff : .home }
+                FraiseBackButton { state.navigate(to: state.isSignedIn ? .staff : .home) }
                 Spacer()
                 Text("walk-in")
                     .font(.system(size: 14, design: .serif))

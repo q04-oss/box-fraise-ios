@@ -10,6 +10,8 @@ import os
 
 enum AppSecurity {
 
+    private static let log = Logger(subsystem: "com.boxfraise.app", category: "security")
+
     // MARK: - Jailbreak detection
 
     // OSAllocatedUnfairLock serialises the write-once cache without a dedicated queue.
@@ -19,20 +21,33 @@ enum AppSecurity {
     static func isJailbroken() -> Bool {
         _jailbreakLock.withLock { cached -> Bool in
             if let v = cached { return v }
-            #if targetEnvironment(simulator)
-            cached = false
-            return false
-            #else
-            let result = hasJailbreakFiles()
-                || canWriteOutsideSandbox()
-                || hasSuspiciousURLSchemes()
-                || hasDynamicLibraryInjection()
-                || hasInjectedDylibs()
-                || hasFridaServer()
+            let result = _checkJailbreak()
             cached = result
+            log.info("Jailbreak check result: \(result ? "COMPROMISED" : "clean") (cached)")
             return result
-            #endif
         }
+    }
+
+    /// Runs a fresh jailbreak check bypassing the cache.
+    /// Use before sensitive operations (sign-in, order placement, meeting confirmation)
+    /// to catch hooks that intercept the first check and return false.
+    static func isJailbrokenFresh() -> Bool {
+        let result = _checkJailbreak()
+        log.info("Jailbreak check result: \(result ? "COMPROMISED" : "clean") (fresh)")
+        return result
+    }
+
+    private static func _checkJailbreak() -> Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #else
+        return hasJailbreakFiles()
+            || canWriteOutsideSandbox()
+            || hasSuspiciousURLSchemes()
+            || hasDynamicLibraryInjection()
+            || hasInjectedDylibs()
+            || hasFridaServer()
+        #endif
     }
 
     private static func hasJailbreakFiles() -> Bool {
@@ -136,14 +151,22 @@ enum AppSecurity {
 
     // MARK: - Enforcement
 
+    /// Terminates the process if the runtime environment is compromised.
+    /// Call at app launch before any user data is loaded.
+    /// In debug builds, jailbreak checks are skipped (simulator + debug devices would always fail).
     static func enforce() {
         // Block the app from running in a simulator in release builds.
         // Simulator = no Secure Enclave, no App Attest, trivially reversible.
         #if !DEBUG && targetEnvironment(simulator)
+        log.critical("Simulator detected in release build — terminating")
         exit(0)
         #endif
+        PinningDelegate.checkCertExpiry()
         denyDebuggerAttach()
-        if isDebuggerAttached() { exit(0) }
+        if isDebuggerAttached() {
+            log.critical("Debugger detected — terminating")
+            exit(0)
+        }
         // Fast checks (file paths, sandbox write, URL schemes, dylibs) run inline.
         // hasFridaServer() opens a socket with a 300 ms timeout — runs on a background
         // thread so it never stalls the launch path. The lock ensures only one winner.
@@ -151,16 +174,22 @@ enum AppSecurity {
         if hasJailbreakFiles() || canWriteOutsideSandbox()
             || hasSuspiciousURLSchemes() || hasDynamicLibraryInjection()
             || hasInjectedDylibs() {
+            log.critical("Jailbreak detected (fast check) — terminating")
             exit(0)
         }
         Task.detached(priority: .background) {
-            if hasFridaServer() { exit(0) }
+            if hasFridaServer() {
+                log.critical("Frida server detected — terminating")
+                exit(0)
+            }
         }
+        log.info("Security enforcement passed")
         #endif
     }
 
     // Re-evaluates against the in-process cache. Never reads from UserDefaults —
     // a persisted flag can be cleared by an attacker with device access.
+    // For sensitive operations use isJailbrokenFresh() to bypass the cache.
     static var isCompromised: Bool { isJailbroken() }
 }
 
@@ -168,18 +197,34 @@ enum AppSecurity {
 
 final class PinningDelegate: NSObject, URLSessionDelegate {
     // SHA-256 of the SubjectPublicKeyInfo (SPKI) for fraise.box.
-    // To regenerate after a cert rotation:
-    //   openssl s_client -connect fraise.box:443 </dev/null | \
-    //   openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | \
-    //   openssl dgst -sha256 -binary | base64
+    // Regenerate with:
+    //   openssl s_client -connect fraise.box:443 </dev/null \
+    //     | openssl x509 -pubkey -noout \
+    //     | openssl pkey -pubin -outform der \
+    //     | openssl dgst -sha256 -binary | base64
     //
-    // Always keep two hashes: current + next. Add the next hash before the
-    // cert rotates (Let's Encrypt renews every ~60 days), remove the old
-    // one after all clients have updated. A single-hash gap = global outage.
+    // Always keep two hashes: current + next. Add the next hash BEFORE the cert rotates
+    // (Let's Encrypt renews every ~60 days), remove the old hash AFTER all clients update.
+    // A single-hash gap = global request failure for all users. Verify in staging first.
     private static let pinnedHashes: Set<String> = [
         "4ds9LCAvlHQB8boxWg9GOhXP4kY7D39TGVCMkbiPYu0=",   // current
-        // "REPLACE_WITH_NEXT_CERT_SPKI_HASH=",            // add before next renewal
+        // "REPLACE_WITH_NEXT_SPKI_HASH=",                 // next — add before renewal
     ]
+
+    // Expiry date of the currently pinned certificate.
+    // Set this to the actual expiry (`openssl x509 -noout -enddate`) when adding a new hash.
+    // checkCertExpiry() logs a fault at launch when fewer than 30 days remain,
+    // so the next hash is added with enough lead time to push an app update.
+    static let currentCertExpiry: Date? = nil  // TODO: Date(timeIntervalSince1970: <unix_ts>)
+
+    static func checkCertExpiry() {
+        guard let expiry = currentCertExpiry else { return }
+        let daysRemaining = Int(expiry.timeIntervalSinceNow / 86400)
+        guard daysRemaining < 30 else { return }
+        // .fault appears in crash reports and sysdiagnose even without a console attached —
+        // visible to oncall even if they're not running a profiler.
+        os_log(.fault, "TLS cert expires in %d days — add next SPKI hash to PinningDelegate.pinnedHashes NOW", daysRemaining)
+    }
 
     func urlSession(
         _ session: URLSession,

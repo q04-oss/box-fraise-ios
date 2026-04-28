@@ -6,15 +6,17 @@ import CryptoKit
 enum APIError: LocalizedError {
     case serverError(String)
     case unauthorized
+    case rateLimited(retryAfter: TimeInterval)
     case http(Int)
     case pinningFailure
 
     var errorDescription: String? {
         switch self {
-        case .serverError(let m): return m
-        case .unauthorized:       return "session expired — please sign in again"
-        case .http(let c):        return "HTTP \(c)"
-        case .pinningFailure:     return "secure connection could not be established"
+        case .serverError(let m):         return m
+        case .unauthorized:               return "session expired — please sign in again"
+        case .rateLimited(let after):     return "too many requests — try again in \(Int(after))s"
+        case .http(let c):                return "HTTP \(c)"
+        case .pinningFailure:             return "secure connection could not be established"
         }
     }
 }
@@ -33,33 +35,74 @@ actor APIClient {
         return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     }()
 
-    private static let decoder: JSONDecoder = {
+    static let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
 
-    // HMAC signing secret — stored as bytes so it doesn't appear in binary strings output
-    private static let signingKey = SymmetricKey(data: Data([
-        0x66, 0x72, 0x61, 0x69, 0x73, 0x65, 0x2d, 0x72,  // fraise-r
-        0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2d, 0x73,  // equest-s
-        0x69, 0x67, 0x6e, 0x69, 0x6e, 0x67, 0x2d, 0x76,  // igning-v
-        0x31,                                              // 1
-    ]))
+    // HMAC request-signing key — generated once per device on first launch and stored in
+    // Keychain so it never appears in the binary's data segment or in strings output.
+    // The server learns this key during App Attest registration (sent as hmacKey in
+    // registerAttestation). Attested devices additionally sign every request with an
+    // ECDSA assertion from the Secure Enclave — HMAC is the fallback for unattested devices.
+    private static let signingKey: SymmetricKey = {
+        let service = "com.boxfraise.hmac"
+        let account = "request-signing-v2"
+        // Load existing device-specific key from Keychain.
+        let loadQ: [CFString: Any] = [
+            kSecClass:       kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecReturnData:  true,
+            kSecMatchLimit:  kSecMatchLimitOne,
+            kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        var result: AnyObject?
+        if SecItemCopyMatching(loadQ as CFDictionary, &result) == errSecSuccess,
+           let data = result as? Data, data.count == 32 {
+            return SymmetricKey(data: data)
+        }
+        // First launch — generate a random 256-bit device-unique key.
+        let newKey = SymmetricKey(size: .bits256)
+        let keyData = newKey.withUnsafeBytes { Data($0) }
+        let saveQ: [CFString: Any] = [
+            kSecClass:           kSecClassGenericPassword,
+            kSecAttrService:     service,
+            kSecAttrAccount:     account,
+            kSecValueData:       keyData,
+            kSecAttrAccessible:  kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        SecItemAdd(saveQ as CFDictionary, nil)
+        return newKey
+    }()
+
+    // Exposes the device signing key bytes for registration during App Attest.
+    // The server learns this key so it can validate per-device HMAC signatures independently.
+    var deviceSigningKeyData: Data {
+        Self.signingKey.withUnsafeBytes { Data($0) }
+    }
 
     // MARK: - Core request
+    // Typed: JSON-encodes body, HMAC-signs, App Attest asserts, JSON-decodes response via decoder.
 
-    private func request<T: Decodable>(
+    func request<T: Decodable>(
         _ path: String,
         method: String = "GET",
         body: [String: Any]? = nil,
-        token: String? = nil
+        token: FraiseToken? = nil
     ) async throws -> T {
-        var req = URLRequest(url: base.appendingPathComponent(path))
+        // Direct string construction avoids appendingPathComponent stripping leading slashes.
+        guard let url = URL(string: "https://fraise.box/api\(path)") else {
+            throw APIError.serverError("invalid path: \(path)")
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 30  // surface failures faster than the 60s default
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("ios", forHTTPHeaderField: "X-Fraise-Client")
-        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let token { req.setValue("Bearer \(token.rawValue)", forHTTPHeaderField: "Authorization") }
 
         let bodyData: Data
         if let body {
@@ -69,8 +112,11 @@ actor APIClient {
             bodyData = Data()
         }
 
-        // HMAC signature: HMAC(key, method + fullPath + timestamp + body)
-        // Use full path (/api/...) so both request() and rawRequest() sign identically
+        // HMAC-SHA256 over: method + fullPath + timestamp + body
+        //   method    — prevents method substitution (GET → POST)
+        //   fullPath  — prevents path substitution (/orders → /admin)
+        //   timestamp — replay window: server rejects requests older than 5 minutes
+        //   body      — prevents body tampering after signing
         let timestamp = String(Int(Date().timeIntervalSince1970))
         let fullPath = "/api\(path)"
         let message = "\(method)\(fullPath)\(timestamp)".data(using: .utf8)! + bodyData
@@ -91,6 +137,12 @@ actor APIClient {
 
         if !(200...299).contains(status) {
             if status == 401 { throw APIError.unauthorized }
+            if status == 429 {
+                let retryAfter = (response as? HTTPURLResponse)
+                    .flatMap { $0.value(forHTTPHeaderField: "Retry-After") }
+                    .flatMap { TimeInterval($0) } ?? 60
+                throw APIError.rateLimited(retryAfter: retryAfter)
+            }
             let msg = (try? Self.decoder.decode([String: String].self, from: data))?["error"]
             throw APIError.serverError(msg ?? "HTTP \(status)")
         }
@@ -98,9 +150,12 @@ actor APIClient {
         return try Self.decoder.decode(T.self, from: data)
     }
 
-    // Raw request builder — for endpoints needing custom headers (staff, walk-in)
-    private func rawRequest(url: URL, method: String = "GET", headers: [String: String] = [:], body: Data? = nil) async throws -> Data {
+    // Raw: caller provides pre-encoded body and handles decoded response — used where custom
+    // auth headers are needed (staff pin, walk-in NFC token) rather than a Bearer token.
+    func rawRequest(url: URL, method: String = "GET",
+                    headers: [String: String] = [:], body: Data? = nil) async throws -> Data {
         var req = URLRequest(url: url)
+        req.timeoutInterval = 15  // local-network staff/walk-in endpoints should respond faster
         req.httpMethod = method
         req.setValue("ios", forHTTPHeaderField: "X-Fraise-Client")
         headers.forEach { req.setValue($1, forHTTPHeaderField: $0) }
@@ -117,403 +172,13 @@ actor APIClient {
         return data
     }
 
-    // MARK: - Auth
-
-    func appleSignIn(identityToken: String, firstName: String?, lastName: String?, email: String?) async throws -> AuthResponse {
-        var body: [String: Any] = ["identityToken": identityToken]
-        if let firstName { body["firstName"] = firstName }
-        if let lastName  { body["lastName"]  = lastName }
-        if let email     { body["email"]     = email }
-        return try await request("/users/apple-signin", method: "POST", body: body)
-    }
-
-    func fetchMe(token: String) async throws -> BoxUser {
-        try await request("/users/me", token: token)
-    }
-
-    func registerAttestation(keyID: String, attestation: Data, challenge: Data, userToken: String?) async throws {
-        let _: OKResponse = try await request("/devices/attest", method: "POST", body: [
-            "key_id":      keyID,
-            "attestation": attestation.base64EncodedString(),
-            "challenge":   challenge.base64EncodedString(),
-        ], token: userToken)
-    }
-
-    func updatePushToken(_ pushToken: String, token: String) async throws {
-        let _: OKResponse = try await request("/users/push-token", method: "PUT", body: ["push_token": pushToken], token: token)
-    }
-
-    // MARK: - Businesses
-
-    func fetchBusinesses() async throws -> [Business] {
-        try await request("/businesses")
-    }
-
-    // MARK: - Popups
-
-    func fetchPopups() async throws -> [FraisePopup] {
-        let response: PopupsResponse = try await request("/fraise/popups")
-        return response.popups
-    }
-
-    func joinPopup(id: Int, token: String) async throws -> JoinResponse {
-        try await request("/fraise/popups/\(id)/join", method: "POST", token: token)
-    }
-
-    func confirmPopupJoin(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/fraise/popups/\(id)/join/confirm", method: "POST", token: token)
-    }
-
-    func cancelPopup(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/fraise/popups/\(id)/cancel", method: "POST", token: token)
-    }
-
-    // MARK: - Varieties
-
-    func fetchVarieties() async throws -> [Variety] {
-        try await request("/varieties")
-    }
-
-    // MARK: - Orders
-
-    func createOrder(locationId: Int, varietyId: Int, chocolate: String, finish: String, quantity: Int, token: String) async throws -> OrderResponse {
-        try await request("/orders", method: "POST", body: [
-            "location_id": locationId,
-            "variety_id":  varietyId,
-            "chocolate":   chocolate,
-            "finish":      finish,
-            "quantity":    quantity,
-        ], token: token)
-    }
-
-    func confirmOrder(orderId: Int, token: String) async throws -> ConfirmedOrder {
-        try await request("/orders/\(orderId)/confirm", method: "POST", body: [:], token: token)
-    }
-
-    func fetchSocialAccess(token: String) async throws -> UserSocialAccess {
-        try await request("/users/me/social-access", token: token)
-    }
-
-    func fetchOrderReceipt(orderId: Int, token: String) async throws -> OrderReceipt {
-        try await request("/orders/\(orderId)/receipt", token: token)
-    }
-
-    func payWithBalance(orderId: Int, token: String) async throws -> ConfirmedOrder {
-        try await request("/orders/\(orderId)/pay-balance", method: "POST", token: token)
-    }
-
-    func fetchOrderHistory(token: String) async throws -> [PastOrder] {
-        try await request("/users/me/orders", token: token)
-    }
-
-    func rateOrder(id: Int, rating: Int, token: String) async throws {
-        let _: OKResponse = try await request("/orders/\(id)/rate", method: "POST",
-            body: ["rating": rating], token: token)
-    }
-
-    // MARK: - Signal key server
-
-    func publishKeys(identityKey: String, signedPreKey: String, signedPreKeySig: String, token: String) async throws {
-        let _: OKResponse = try await request("/keys/register", method: "POST", body: [
-            "identityKey": identityKey,
-            "signedPreKey": signedPreKey,
-            "signedPreKeySig": signedPreKeySig,
-        ], token: token)
-    }
-
-    func fetchKeyBundle(userId: Int, token: String) async throws -> UserKeyBundle {
-        try await request("/keys/bundle/\(userId)", token: token)
-    }
-
-    func fetchKeyBundleByCode(_ userCode: String, token: String) async throws -> UserKeyBundle {
-        try await request("/keys/bundle/by-code/\(userCode)", token: token)
-    }
-
-    // MARK: - Platform messages
-
-    func sendMessage(recipientCode: String, encryptedBody: String, messageType: String = "text",
-                     fraiseObject: FraiseObject? = nil, x3dhSenderKey: String? = nil,
-                     expiresInDays: Int? = nil, replyToId: Int? = nil,
-                     replyToSnippet: String? = nil, token: String) async throws -> PlatformMessage {
-        var body: [String: Any] = [
-            "recipient_code": recipientCode,
-            "encrypted_body": encryptedBody,
-            "message_type": messageType,
-        ]
-        if let obj = fraiseObject, let data = try? JSONEncoder().encode(obj),
-           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            body["fraise_object"] = dict
-        }
-        if let key = x3dhSenderKey { body["x3dh_sender_key"] = key }
-        if let days = expiresInDays { body["expires_in_days"] = days }
-        if let rid  = replyToId     { body["reply_to_id"]    = rid }
-        if let snip = replyToSnippet { body["reply_to_snippet"] = snip }
-        return try await request("/platform-messages/send", method: "POST", body: body, token: token)
-    }
-
-    func fetchNewMessages(userCode: String, afterId: Int, token: String) async throws -> [PlatformMessage] {
-        try await request("/platform-messages/thread/\(userCode)/new?after_id=\(afterId)", token: token)
-    }
-
-    func fetchThreads(token: String) async throws -> [MessageThread] {
-        try await request("/platform-messages/threads", token: token)
-    }
-
-    func fetchThread(userCode: String, token: String) async throws -> [PlatformMessage] {
-        try await request("/platform-messages/thread/\(userCode)", token: token)
-    }
-
-    func markThreadDelivered(userCode: String, token: String) async throws {
-        let _: OKResponse = try await request("/platform-messages/thread/\(userCode)/delivered",
-                                               method: "POST", token: token)
-    }
-
-    func markThreadRead(userCode: String, token: String) async throws {
-        let _: OKResponse = try await request("/platform-messages/thread/\(userCode)/read",
-                                               method: "POST", token: token)
-    }
-
-    func sendTyping(toUserCode: String, token: String) async throws {
-        let _: OKResponse = try await request("/platform-messages/thread/\(toUserCode)/typing",
-                                               method: "POST", token: token)
-    }
-
-    func checkTyping(fromUserCode: String, token: String) async throws -> Bool {
-        struct TypingResponse: Decodable { let typing: Bool }
-        let r: TypingResponse = try await request("/platform-messages/thread/\(fromUserCode)/typing-status",
-                                                   token: token)
-        return r.typing
-    }
-
-    func updateStatus(_ status: String, token: String) async throws {
-        let _: OKResponse = try await request("/users/me/status", method: "PATCH",
-                                               body: ["status": status], token: token)
-    }
-
-    func broadcastMessage(encryptedBody: String, token: String) async throws {
-        let _: OKResponse = try await request("/platform-messages/broadcast", method: "POST",
-                                               body: ["encrypted_body": encryptedBody], token: token)
-    }
-
-    func addBusinessContact(businessCode: String, token: String) async throws {
-        let _: OKResponse = try await request("/connections/business-contact", method: "POST",
-                                               body: ["business_user_code": businessCode], token: token)
-    }
-
-    // MARK: - Connections / Met
-
-    func getMeetingToken(token: String) async throws -> MeetingToken {
-        try await request("/connections/token", method: "POST", token: token)
-    }
-
-    func recordMeeting(myToken: String, theirToken: String, token: String) async throws {
-        let _: OKResponse = try await request("/connections/meet", method: "POST", body: [
-            "my_token": myToken, "their_token": theirToken,
-        ], token: token)
-    }
-
-    func fetchPendingConnections(token: String) async throws -> [PendingConnection] {
-        try await request("/connections/pending", token: token)
-    }
-
-    func approveConnection(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/connections/approve/\(id)", method: "POST", token: token)
-    }
-
-    func declineConnection(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/connections/decline/\(id)", method: "POST", token: token)
-    }
-
-    func fetchContacts(token: String) async throws -> [FraiseContact] {
-        try await request("/connections/contacts", token: token)
-    }
-
-    // MARK: - Fraise inbox
-
-    func fetchFraiseMessages(token: String) async throws -> [FraiseMessage] {
-        try await request("/fraise-chat/messages", token: token)
-    }
-
-    func markMessageRead(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/fraise-chat/messages/\(id)/read", method: "POST", token: token)
-    }
-
-    func deleteMessage(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/fraise-chat/messages/\(id)", method: "DELETE", token: token)
-    }
-
-    // MARK: - Referrals
-
-    func fetchReferralInfo(token: String) async throws -> ReferralInfo {
-        try await request("/referrals/my-code", token: token)
-    }
-
-    func applyReferralCode(_ code: String, token: String) async throws {
-        let _: OKResponse = try await request("/referrals/apply", method: "POST", body: ["code": code], token: token)
-    }
-
-    // MARK: - Standing orders
-
-    func fetchStandingOrders(token: String) async throws -> [StandingOrder] {
-        try await request("/users/me/standing-orders", token: token)
-    }
-
-    func createStandingOrder(varietyId: Int, locationId: Int, quantity: Int,
-                             chocolate: String, finish: String, token: String) async throws -> StandingOrder {
-        try await request("/users/me/standing-orders", method: "POST", body: [
-            "variety_id":  varietyId,
-            "location_id": locationId,
-            "quantity":    quantity,
-            "chocolate":   chocolate,
-            "finish":      finish,
-        ], token: token)
-    }
-
-    func updateStandingOrder(id: Int, status: String, token: String) async throws {
-        let _: OKResponse = try await request("/users/me/standing-orders/\(id)", method: "PATCH",
-            body: ["status": status], token: token)
-    }
-
-    // MARK: - Akène
-
-    func fetchAkeneProfile(token: String) async throws -> AkeneProfile {
-        try await request("/akene/my", token: token)
-    }
-
-    func fetchAkeneLeaderboard(token: String) async throws -> [AkeneLeaderboardEntry] {
-        try await request("/akene/leaderboard", token: token)
-    }
-
-    func purchaseAkene(quantity: Int, token: String) async throws -> AkenePurchaseResponse {
-        try await request("/akene/purchase", method: "POST", body: ["quantity": quantity], token: token)
-    }
-
-    func confirmAkenePurchase(paymentIntentId: String, token: String) async throws {
-        let _: OKResponse = try await request("/akene/purchase/confirm", method: "POST",
-                                               body: ["payment_intent_id": paymentIntentId], token: token)
-    }
-
-    func fetchAkeneInvitations(token: String) async throws -> [AkeneInvitation] {
-        try await request("/akene/invitations", token: token)
-    }
-
-    struct AcceptInvitationResponse: Decodable { let ok: Bool?; let waitlisted: Bool? }
-    func acceptAkeneInvitation(id: Int, token: String) async throws -> Bool {
-        let r: AcceptInvitationResponse = try await request("/akene/invitations/\(id)/accept",
-                                                            method: "POST", token: token)
-        return r.waitlisted ?? false
-    }
-
-    func declineAkeneInvitation(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/akene/invitations/\(id)/decline", method: "POST", token: token)
-    }
-
-    func fetchAkeneEventDetail(id: Int, token: String) async throws -> AkeneEventDetail {
-        try await request("/akene/events/\(id)", token: token)
-    }
-
-    func fetchAkeneAttendees(eventId: Int, token: String) async throws -> [AkeneAttendee] {
-        try await request("/akene/events/\(eventId)/attendees", token: token)
-    }
-
-    func fetchAkeneHolderProfile(userId: Int, token: String) async throws -> AkeneHolderProfile {
-        try await request("/akene/holders/\(userId)", token: token)
-    }
-
-    func createAkeneEvent(title: String, description: String?, eventDate: String?,
-                          capacity: Int, businessId: Int?, token: String) async throws -> AkeneEventDetail {
-        var body: [String: Any] = ["title": title, "capacity": capacity]
-        if let d = description { body["description"] = d }
-        if let dt = eventDate  { body["event_date"]  = dt }
-        if let bid = businessId { body["business_id"] = bid }
-        return try await request("/akene/events", method: "POST", body: body, token: token)
-    }
-
-    func fetchAkeneMyEvents(token: String) async throws -> [AkeneMyEvent] {
-        try await request("/akene/events/mine", token: token)
-    }
-
-    func fetchAkenePurchases(token: String) async throws -> [AkenePurchaseRecord] {
-        try await request("/akene/purchases/mine", token: token)
-    }
-
-    func setAkeneEventDate(eventId: Int, eventDate: String, token: String) async throws {
-        let _: OKResponse = try await request("/akene/events/\(eventId)/set-date", method: "PATCH",
-                                               body: ["event_date": eventDate], token: token)
-    }
-
-    func sendAkeneInvitations(eventId: Int, count: Int, token: String) async throws -> Int {
-        struct R: Decodable { let sent: Int }
-        let r: R = try await request("/akene/events/\(eventId)/invite", method: "POST",
-                                      body: ["count": count], token: token)
-        return r.sent
-    }
-
-    // MARK: - Date nights & promotions
-
-    func fetchDateInvitations(token: String) async throws -> [DateInvitation] {
-        try await request("/dates/invitations", token: token)
-    }
-
-    func openDateInvitation(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/dates/invitations/\(id)/open", method: "POST", token: token)
-    }
-
-    func acceptDateInvitation(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/dates/invitations/\(id)/accept", method: "POST", token: token)
-    }
-
-    func declineDateInvitation(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/dates/invitations/\(id)/decline", method: "POST", token: token)
-    }
-
-    func fetchMemoryRequests(token: String) async throws -> [MemoryRequest] {
-        try await request("/dates/memory", token: token)
-    }
-
-    func respondToMemory(id: Int, wants: Bool, token: String) async throws {
-        let _: OKResponse = try await request("/dates/memory/\(id)/respond", method: "POST",
-                                               body: ["wants": wants], token: token)
-    }
-
-    func fetchPromotions(token: String) async throws -> [PromotionDelivery] {
-        try await request("/dates/promotions", token: token)
-    }
-
-    func readPromotion(id: Int, token: String) async throws {
-        let _: OKResponse = try await request("/dates/promotions/\(id)/read", method: "POST", token: token)
-    }
-
-    func fetchEarnings(token: String) async throws -> UserEarnings {
-        try await request("/dates/earnings", token: token)
-    }
-
-    func fetchBusinessDateStats(businessId: Int) async throws -> BusinessDateStats {
-        try await request("/dates/business/\(businessId)/stats")
-    }
-
-    func setDateOptIn(_ open: Bool, token: String) async throws {
-        let _: OKResponse = try await request("/dates/opt-in", method: "PATCH",
-                                               body: ["open": open], token: token)
-    }
-
-    // MARK: - NFC
-
-    func verifyNFC(token nfcToken: String, userToken: String) async throws -> NFCVerifyResult {
-        try await request("/verify/nfc", method: "POST", body: ["nfc_token": nfcToken], token: userToken)
-    }
-
-    func verifyNFCReorder(token nfcToken: String, userToken: String) async throws -> NFCReorderResult {
-        try await request("/verify/reorder", method: "POST", body: ["nfc_token": nfcToken], token: userToken)
-    }
-
     // MARK: - Staff
 
-    func fetchStaffOrders(pin: String, token: String) async throws -> [StaffOrder] {
+    func fetchStaffOrders(pin: String, token: FraiseToken) async throws -> [StaffOrder] {
         let url = URL(string: "https://fraise.box/api/staff/orders") ?? base
         let data = try await rawRequest(url: url, headers: [
             "x-staff-pin":   pin,
-            "Authorization": "Bearer \(token)",
+            "Authorization": "Bearer \(token.rawValue)",
         ])
         return try Self.decoder.decode([StaffOrder].self, from: data)
     }
@@ -531,26 +196,28 @@ actor APIClient {
         return (try? Self.decoder.decode([WalkInItem].self, from: data)) ?? []
     }
 
-    func createWalkInOrder(nfcToken: String, chocolate: String, finish: String, customerEmail: String) async throws -> JoinResponse {
+    func createWalkInOrder(nfcToken: String, chocolate: String, finish: String,
+                           customerEmail: String) async throws -> JoinResponse {
         let url = URL(string: "https://fraise.box/api/walkin/\(nfcToken)/order") ?? base
         let body = try JSONSerialization.data(withJSONObject: [
-            "chocolate": chocolate,
-            "finish": finish,
+            "chocolate":      chocolate,
+            "finish":         finish,
             "customer_email": customerEmail,
         ])
-        let data = try await rawRequest(url: url, method: "POST", headers: [
-            "Content-Type": "application/json"
-        ], body: body)
+        let data = try await rawRequest(url: url, method: "POST",
+                                        headers: ["Content-Type": "application/json"], body: body)
         return try Self.decoder.decode(JoinResponse.self, from: data)
     }
 }
 
 // MARK: - Response helpers
 
-private struct OKResponse: Decodable { let ok: Bool? }
+struct OKResponse: Decodable { let ok: Bool? }
 
 struct PopupsResponse: Decodable { let popups: [FraisePopup] }
 
-struct JoinResponse: Decodable {
+// Stripe client secret — must never appear in logs.
+struct JoinResponse: Decodable, CustomDebugStringConvertible {
     let clientSecret: String
+    var debugDescription: String { "JoinResponse(clientSecret: [REDACTED])" }
 }

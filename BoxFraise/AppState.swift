@@ -10,7 +10,7 @@ final class AppState {
     var user: BoxUser? = nil
 
     // Map data
-    var businesses: [Business]  = [] { didSet { _approvedCache = nil; _unapprovedCache = nil } }
+    var businesses: [Business]  = [] { didSet { invalidateBusinessCaches() } }
     var popups: [FraisePopup]   = []
     var varieties: [Variety]    = []
     private var _approvedCache:   [Business]?
@@ -19,7 +19,8 @@ final class AppState {
     // Navigation
     private(set) var panel: Panel = .home
 
-    func navigate(to destination: Panel) { panel = destination }
+    // All panel changes flow through this single method — panel is private(set).
+    @MainActor func navigate(to destination: Panel) { panel = destination }
     var activeLocation: Business? = nil
 
     // Ordering
@@ -30,15 +31,15 @@ final class AppState {
     var orderHistory: [PastOrder] = []
 
     // Staff
-    var staffPin: String          = ""
-    var staffOrders: [StaffOrder] = []
+    var staffAccessCode: String          = ""
+    var pendingStaffOrders: [StaffOrder] = []
 
     // Walk-in
     var walkInInventory: [WalkInItem] = []
 
     // User location
     var userLocation: CLLocationCoordinate2D? = nil {
-        didSet { _nearestCollectionCache = nil }
+        didSet { invalidateBusinessCaches() }
     }
 
     // Social
@@ -47,13 +48,21 @@ final class AppState {
     // Messaging
     var totalUnreadMessages: Int = 0
 
-    // Re-auth
+    // Set by handleUnauthorized(); cleared by the re-auth banner dismiss button.
     var needsReauth: Bool = false
 
-    // Sheet detent requests — ContentView observes and applies
+    // Set when key publication fails after all retries; shown as a dismissible banner.
+    // Non-fatal — the user can still receive messages from existing sessions.
+    var messagingKeysPublishFailed: Bool = false
+
+    // Set to the target fraction; ContentView applies it and resets to nil to prevent re-triggering.
     var requestedDetent: Double? = nil
 
-    // Popups the user has joined this session
+    // Set by AppDelegate on notification tap; consumed once by ContentView's onChange.
+    var pendingScreen: String? = nil
+
+    // Session-only — not persisted. Prevents duplicate join requests while a Stripe payment sheet
+    // is in flight. Server is the source of truth; this is an optimistic local guard.
     var joinedPopupIds: Set<Int> = []
 
     // Network
@@ -62,6 +71,8 @@ final class AppState {
 
     // User preferences — backed by UserDefaults, not @AppStorage, so views
     // don't own persistence state.
+    // Not @Observable — views reading these won't auto-update on external UserDefaults changes.
+    // Reads are always current; observation is manual.
     var openToDates: Bool {
         get { UserDefaults.standard.bool(forKey: AppStorageKey.openToDates) }
         set { UserDefaults.standard.set(newValue, forKey: AppStorageKey.openToDates) }
@@ -87,9 +98,11 @@ final class AppState {
         let r = businesses.filter { !$0.isApproved && $0.coordinate != nil }
         _unapprovedCache = r; return r
     }
+    // The most recent paid or ready order — shown as the active pickup in the home sheet.
     var activeOrder: PastOrder? { orderHistory.first { $0.isPaid } }
 
     // Cached nearest collection — recomputed only when businesses or userLocation changes.
+    // Location unknown — fall back to first collection in list (server returns nearest-first by default).
     private var _nearestCollectionCache: Business?
     var nearestCollection: Business? {
         if let cached = _nearestCollectionCache { return cached }
@@ -98,8 +111,10 @@ final class AppState {
             result = approvedBusinesses
                 .filter { $0.isCollection }
                 .min { a, b in
-                    let locA = CLLocation(latitude: a.lat!, longitude: a.lng!)
-                    let locB = CLLocation(latitude: b.lat!, longitude: b.lng!)
+                    guard let latA = a.lat, let lngA = a.lng,
+                          let latB = b.lat, let lngB = b.lng else { return false }
+                    let locA = CLLocation(latitude: latA, longitude: lngA)
+                    let locB = CLLocation(latitude: latB, longitude: lngB)
                     let ref  = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
                     return locA.distance(from: ref) < locB.distance(from: ref)
                 }
@@ -118,6 +133,7 @@ final class AppState {
     func startNetworkMonitor() {
         let monitor = NWPathMonitor()
         networkMonitor = monitor
+        // Weak capture prevents the monitor callback from holding AppState alive after the scene is destroyed.
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor [weak self] in
                 self?.isOffline = path.status != .satisfied
@@ -126,62 +142,94 @@ final class AppState {
         monitor.start(queue: .global(qos: .utility))
     }
 
-    // MARK: - Bootstrap
+    // MARK: - Bootstrap — called once at app launch, not on scene resume
 
     func bootstrap() async {
+        restoreCachedUser()
+        await refreshPublicMapData()
+        guard let token = Keychain.userToken else { return }
+        await loadUserData(token: token)
+        publishMessagingKeys(token: token)
+    }
+
+    // Phase 1: Populate UI immediately from on-disk cache before any network call.
+    private func restoreCachedUser() {
         loadCache()
+    }
+
+    // Phase 2: Public data — businesses, popups, varieties. No auth required.
+    private func refreshPublicMapData() async {
         async let biz  = try? await APIClient.shared.fetchBusinesses()
         async let pops = try? await APIClient.shared.fetchPopups()
         async let vars = try? await APIClient.shared.fetchVarieties()
-
-        if let b = await biz  { businesses = b; _nearestCollectionCache = nil }
+        if let b = await biz  { businesses = b; invalidateBusinessCaches() }
         if let p = await pops { popups = p }
-        if let v = await vars { varieties = v.filter { $0.active ?? true } }
+        // Server omits 'active' on legacy variety records — treat absence as active.
+        if let v = await vars { varieties = v.filter { $0.isActive } }
+    }
 
-        guard let token = Keychain.userToken else { return }
+    // Phase 3: User-specific data — requires a valid session token.
+    private func loadUserData(token: FraiseToken) async {
         async let me   = try? await APIClient.shared.fetchMe(token: token)
         async let hist = try? await APIClient.shared.fetchOrderHistory(token: token)
         if let u = await me   { user = u; persist(user: u) }
         if let h = await hist { orderHistory = h }
-        Task { try? await FraiseMessaging.shared.publishKeys(token: token) }
+    }
+
+    // Phase 4: Publish public Signal keys to the key server in the background.
+    // On failure after retries, sets messagingKeysPublishFailed so the UI can
+    // inform the user — new contacts cannot establish sessions until keys are published.
+    private func publishMessagingKeys(token: FraiseToken) {
+        Task {
+            do {
+                try await FraiseMessaging.shared.publishPublicKeys(token: token)
+            } catch {
+                messagingKeysPublishFailed = true
+            }
+        }
     }
 
     // MARK: - Auth
 
     func signIn(response: AuthResponse) async {
+        // Guard against double sign-in from rapid taps — second call is a no-op.
+        guard user == nil else { return }
+        // Fresh check bypasses the cached result — a hook that returns false on first call
+        // cannot protect a subsequent sign-in from detection.
+        guard !AppSecurity.isJailbrokenFresh() else { return }
         Keychain.userToken = response.token
         let me = BoxUser(id: response.userId, displayName: response.displayName,
                          verified: response.verified ?? false, isShop: false,
                          fraiseChatEmail: nil, currentStreakWeeks: nil, socialTier: nil, status: nil)
         user = me
         persist(user: me)
-        panel = .home
+        navigate(to: .home)
         if let pt = pushToken {
             try? await APIClient.shared.updatePushToken(pt, token: response.token)
         }
         await AppAttest.shared.ensureAttestation(userToken: response.token)
-        Task { try? await FraiseMessaging.shared.publishKeys(token: response.token) }
+        Task { try? await FraiseMessaging.shared.publishPublicKeys(token: response.token) }
     }
 
     func signOut() {
         Keychain.userToken = nil
         user = nil
         UserDefaults.standard.removeObject(forKey: Self.userCacheKey)
-        panel = .home
+        navigate(to: .home)
     }
 
     func handleUnauthorized() {
         signOut()
         needsReauth = true
-        panel = .auth
+        navigate(to: .auth)
     }
 
-    func refresh() async {
+    func refreshMapData() async {
         async let biz  = try? await APIClient.shared.fetchBusinesses()
         async let pops = try? await APIClient.shared.fetchPopups()
-        if let b = await biz  { businesses = b; _nearestCollectionCache = nil }
+        if let b = await biz  { businesses = b; invalidateBusinessCaches() }
         if let p = await pops { popups = p }
-        writeWidgetData()
+        updateHomeScreenWidget()
     }
 
     // MARK: - Deep link routing
@@ -189,35 +237,45 @@ final class AppState {
     // Centralises the string → Panel mapping so ContentView and AppDelegate
     // don't need to know the routing logic.
     func route(to screenName: String) {
+        let destination: Panel
         switch screenName {
-        case DeepLinkPath.orderHistory.rawValue:  panel = .orderHistory
-        case DeepLinkPath.popups.rawValue:         panel = .popups
-        case DeepLinkPath.profile.rawValue:        panel = isSignedIn ? .profile : .auth
-        case DeepLinkPath.verify.rawValue:         panel = .nfcVerify
-        case DeepLinkPath.standingOrders.rawValue: panel = isSignedIn ? .standingOrders : .auth
+        case DeepLinkPath.orderHistory.rawValue:   destination = .orderHistory
+        case DeepLinkPath.popups.rawValue:          destination = .popups
+        case DeepLinkPath.profile.rawValue:         destination = isSignedIn ? .profile : .auth
+        case DeepLinkPath.verify.rawValue:          destination = .nfcVerify
+        case DeepLinkPath.standingOrders.rawValue:  destination = isSignedIn ? .standingOrders : .auth
         case DeepLinkPath.inbox.rawValue,
-             DeepLinkPath.messages.rawValue:    panel = isSignedIn ? .messages : .auth
-        case DeepLinkPath.referrals.rawValue:      panel = isSignedIn ? .referrals : .auth
-        case DeepLinkPath.meet.rawValue:           panel = isSignedIn ? .meet : .auth
-        case DeepLinkPath.akene.rawValue:          panel = isSignedIn ? .akene : .auth
+             DeepLinkPath.messages.rawValue:         destination = isSignedIn ? .messages : .auth
+        case DeepLinkPath.referrals.rawValue:       destination = isSignedIn ? .referrals : .auth
+        case DeepLinkPath.meet.rawValue:            destination = isSignedIn ? .meet : .auth
+        case DeepLinkPath.akene.rawValue:           destination = isSignedIn ? .akene : .auth
         case DeepLinkPath.offers.rawValue,
-             DeepLinkPath.memory.rawValue:      panel = isSignedIn ? .messages : .auth
-        default:               panel = .home
+             DeepLinkPath.memory.rawValue:           destination = isSignedIn ? .messages : .auth
+        default:                                    destination = .home
         }
+        navigate(to: destination)
         requestedDetent = 0.55
     }
 
     // Write shared data for the home screen widget via App Group
-    func writeWidgetData() {
+    func updateHomeScreenWidget() {
         guard let nearest = nearestCollection,
               let defaults = UserDefaults(suiteName: AppGroupKey.suiteName) else { return }
         defaults.set(nearest.name, forKey: AppGroupKey.locationName)
-        defaults.set(nearest.displayCity, forKey: AppGroupKey.locationCity)
+        defaults.set(nearest.displayCity ?? "", forKey: AppGroupKey.locationCity)
         defaults.set(popups.filter { $0.isOpen }.count, forKey: AppGroupKey.popupCount)
     }
 
-    func handle(_ error: Error) {
+    func routeAPIError(_ error: Error) {
         if case APIError.unauthorized = error { handleUnauthorized() }
+    }
+
+    // MARK: - Cache invalidation
+
+    private func invalidateBusinessCaches() {
+        _approvedCache = nil
+        _unapprovedCache = nil
+        _nearestCollectionCache = nil
     }
 
     func selectLocation(_ biz: Business) {
@@ -225,7 +283,7 @@ final class AppState {
         activeLocation = biz
         orderState.reset()
         confirmedOrder = nil
-        panel = biz.isCollection ? .order : .home
+        navigate(to: biz.isCollection ? .order : .home)
         requestedDetent = 0.5
         Task { await loadVarieties() }
     }
@@ -234,28 +292,33 @@ final class AppState {
         activeLocation = nil
         orderState.reset()
         confirmedOrder = nil
-        panel = .home
+        navigate(to: .home)
     }
 
     func clearSensitiveState() {
         orderState.reset()
         confirmedOrder = nil
-        staffPin = ""
-        staffOrders = []
+        staffAccessCode = ""
+        pendingStaffOrders = []
     }
 
     func loadVarieties() async {
         if let v = try? await APIClient.shared.fetchVarieties() {
-            varieties = v.filter { $0.active ?? true }
+            varieties = v.filter { $0.isActive }
         }
     }
 
     func refreshUser() async {
         guard let token = Keychain.userToken else { return }
-        async let me     = try? await APIClient.shared.fetchMe(token: token)
-        async let social = try? await APIClient.shared.fetchSocialAccess(token: token)
-        if let u = await me     { user = u; persist(user: u) }
-        if let s = await social { socialAccess = s }
+        do {
+            async let me     = try await APIClient.shared.fetchMe(token: token)
+            async let social = try? await APIClient.shared.fetchSocialAccess(token: token)
+            let u = try await me
+            user = u; persist(user: u)
+            if let s = await social { socialAccess = s }
+        } catch {
+            routeAPIError(error)
+        }
     }
 
     // MARK: - Push

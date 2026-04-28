@@ -309,6 +309,7 @@
 				PRODUCT_NAME = BoxFraise;
 				SUPPORTED_PLATFORMS = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -328,8 +329,11 @@
 				PRODUCT_NAME = BoxFraise;
 				SUPPORTED_PLATFORMS = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 			};
 			name = Release;
 		};

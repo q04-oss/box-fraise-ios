@@ -110,9 +110,9 @@ struct OrderPanel: View {
             FraiseSectionLabel(text: "strawberry")
             if state.varieties.isEmpty {
                 VStack(spacing: 8) {
-                    FraiseSkeletonRow(wide: true)
-                    FraiseSkeletonRow()
-                    FraiseSkeletonRow(wide: true)
+                    FraiseSkeletonRow(style: .wide)
+                    FraiseSkeletonRow(style: .narrow)
+                    FraiseSkeletonRow(style: .wide)
                 }
                 .padding(.top, 4)
             } else {

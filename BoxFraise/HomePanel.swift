@@ -12,7 +12,7 @@ struct HomePanel: View {
     @State private var pendingDateInvitation: DateInvitation?
 
     private var approvedPartnerCount: Int {
-        state.approvedBusinesses.filter { $0.type == "partner" }.count
+        state.approvedBusinesses.filter { $0.type == .partner }.count
     }
 
     private var dateLabel: String {
@@ -20,6 +20,7 @@ struct HomePanel: View {
     }
 
     private var season: String {
+        // Northern hemisphere. No localisation for southern hemisphere currently — revisit for AU/NZ.
         let m = Calendar.current.component(.month, from: Date())
         switch m {
         case 3...5:  return "spring"
@@ -97,7 +98,7 @@ struct HomePanel: View {
 
                 // Profile button
                 Button {
-                    state.panel = state.isSignedIn ? .profile : .auth
+                    state.navigate(to: state.isSignedIn ? .profile : .auth)
                 } label: {
                     Circle()
                         .fill(c.searchBg)
@@ -167,9 +168,9 @@ struct HomePanel: View {
 
                         if state.businesses.isEmpty {
                             VStack(spacing: 10) {
-                                FraiseSkeletonRow(wide: true)
-                                FraiseSkeletonRow()
-                                FraiseSkeletonRow(wide: true)
+                                FraiseSkeletonRow(style: .wide)
+                                FraiseSkeletonRow(style: .narrow)
+                                FraiseSkeletonRow(style: .wide)
                             }
                             .padding(.top, 12)
                         } else if let nearest = state.nearestCollection {
@@ -208,7 +209,7 @@ struct HomePanel: View {
 
                     Spacer(minLength: 40)
                 }
-                .refreshable { await state.refresh() }
+                .refreshable { await state.refreshMapData() }
             } else {
                 if searchResults.isEmpty {
                     VStack {
@@ -256,6 +257,10 @@ struct HomePanel: View {
         }
         .onAppear {
             recentSearches = UserDefaults.standard.stringArray(forKey: AppStorageKey.recentSearches) ?? []
+        }
+        .onDisappear {
+            // Cancel any in-flight debounce task so it doesn't write state after the view disappears.
+            debounceTask?.cancel()
         }
         .task {
             guard let token = Keychain.userToken else { return }

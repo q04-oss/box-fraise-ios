@@ -3,8 +3,7 @@ import SwiftUI
 struct OrderHistoryPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
-    @State private var loading = false
-    @State private var loadError: String?
+    @State private var loadState: ViewState<Void> = .idle
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,27 +21,16 @@ struct OrderHistoryPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            if loading && state.orderHistory.isEmpty {
+            if loadState.isLoading && state.orderHistory.isEmpty {
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(0..<5, id: \.self) { _ in FraiseSkeletonRow(wide: true) }
+                        ForEach(0..<5, id: \.self) { _ in FraiseSkeletonRow(style: .wide) }
                     }
                     .padding(Spacing.md)
                 }
-            } else if let err = loadError {
-                VStack(spacing: 12) {
-                    Text(err)
-                        .font(.mono(12)).foregroundStyle(Color.fraiseRed)
-                        .multilineTextAlignment(.center)
-                    Button { Task { await load() } } label: {
-                        Text("retry")
-                            .font(.mono(12)).foregroundStyle(c.muted)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(c.searchBg).clipShape(Capsule())
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(Spacing.md)
+            } else if case .failed(let msg) = loadState {
+                FraiseErrorView(message: msg) { Task { await load() } }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if state.orderHistory.isEmpty {
                 FraiseEmptyState(
                     icon: "bag",
@@ -67,12 +55,12 @@ struct OrderHistoryPanel: View {
 
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
-        loading = true; loadError = nil
-        defer { loading = false }
+        loadState = .loading
         do {
             state.orderHistory = try await APIClient.shared.fetchOrderHistory(token: token)
+            loadState = .loaded(())
         } catch {
-            loadError = error.localizedDescription
+            loadState = .failed(error.localizedDescription)
         }
     }
 }
@@ -178,7 +166,7 @@ struct OrderHistoryCard: View {
                 } label: {
                     Image(systemName: star <= shown ? "star.fill" : "star")
                         .font(.system(size: 14))
-                        .foregroundStyle(star <= shown ? Color(hex: "F9A825") : c.border)
+                        .foregroundStyle(star <= shown ? Color.fraiseOrange : c.border)
                 }
                 .disabled(ratingDone && displayRating != nil)
             }

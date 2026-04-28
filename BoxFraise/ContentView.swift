@@ -276,11 +276,8 @@ struct SheetContent: View {
             c.background.ignoresSafeArea()
             panelView
                 .id(panelID)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .offset(y: 18)),
-                    removal:   .opacity.combined(with: .offset(y: -6))
-                ))
-                .animation(.spring(response: 0.28, dampingFraction: 0.88), value: panelID)
+                .transition(.fraisePanelTransition)
+                .animation(.fraiseSpring, value: panelID)
         }
         .fraiseTheme()
     }

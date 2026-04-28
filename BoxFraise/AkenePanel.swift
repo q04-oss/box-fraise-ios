@@ -193,7 +193,7 @@ struct AkenePanel: View {
             LazyVStack(spacing: 0) {
                 if loadState.isLoading && leaderboard.isEmpty {
                     ForEach(0..<8, id: \.self) { _ in
-                        FraiseSkeletonRow(wide: false)
+                        FraiseSkeletonRow(style: .narrow)
                             .padding(.horizontal, Spacing.md).padding(.vertical, 10)
                         Divider().foregroundStyle(c.border).opacity(0.4).padding(.leading, Spacing.md)
                     }
@@ -564,7 +564,7 @@ private struct EventDetailSheet: View {
                             .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
                             .textCase(.uppercase)
                         if loading {
-                            ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(wide: false) }
+                            ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(style: .narrow) }
                         } else if attendees.isEmpty {
                             Text("no one has accepted yet — be the first.")
                                 .font(.mono(11)).foregroundStyle(c.muted)

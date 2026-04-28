@@ -4,7 +4,7 @@ struct ReferralsPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var info: ReferralInfo?
-    @State private var loading = false
+    @State private var loadState: ViewState<Void> = .idle
     @State private var applyCode = ""
     @State private var applying = false
     @State private var applyError: String?
@@ -25,10 +25,10 @@ struct ReferralsPanel: View {
 
             Divider().foregroundStyle(c.border).opacity(0.6)
 
-            if loading && info == nil {
+            if loadState.isLoading && info == nil {
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(wide: true) }
+                        ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(style: .wide) }
                     }.padding(Spacing.md)
                 }
             } else {
@@ -51,6 +51,8 @@ struct ReferralsPanel: View {
                                         Haptics.notification(.success)
                                         copied = true
                                         Task {
+                                            // Task.sleep only throws on cancellation, which is
+                                            // expected if the view disappears before the reset fires.
                                             try? await Task.sleep(nanoseconds: 1_500_000_000)
                                             copied = false
                                         }
@@ -172,9 +174,9 @@ struct ReferralsPanel: View {
 
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
-        loading = true
+        loadState = .loading
+        defer { loadState = .loaded(()) }
         info = try? await APIClient.shared.fetchReferralInfo(token: token)
-        loading = false
     }
 
     @MainActor private func apply() async {

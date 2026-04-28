@@ -22,7 +22,7 @@ struct PartnerDetailPanel: View {
                         .font(.system(size: 28, design: .serif))
                         .foregroundStyle(c.text)
 
-                    if let neighbourhood = business.neighbourhood ?? (business.displayCity.isEmpty ? nil : business.displayCity) {
+                    if let neighbourhood = business.neighbourhood ?? business.displayCity {
                         Text(neighbourhood.lowercased())
                             .font(.mono(12))
                             .foregroundStyle(c.muted)

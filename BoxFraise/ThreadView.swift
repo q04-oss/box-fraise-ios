@@ -19,6 +19,7 @@ struct ThreadView: View {
     @State private var pollingTask: Task<Void, Never>?
     @State private var replyTo: PlatformMessage?
     @State private var replyToText: String?
+    @State private var showSafetyNumber = false
     @AppStorage(AppStorageKey.disappearDays) private var disappearDaysRaw: String = "{}"
 
     private var myId: Int { state.user?.id ?? 0 }
@@ -87,6 +88,16 @@ struct ThreadView: View {
                     }
                 }
                 Spacer()
+                // Safety number verification
+                Button { showSafetyNumber = true } label: {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 13))
+                        .foregroundStyle(c.muted)
+                        .frame(width: 30, height: 30)
+                }
+                .accessibilityLabel("verify safety number")
+                .contentShape(Rectangle())
+
                 // Disappearing messages toggle
                 Button { cycleDisappear() } label: {
                     HStack(spacing: 3) {
@@ -221,6 +232,14 @@ struct ThreadView: View {
         .task { await load() }
         .onAppear { startPolling() }
         .onDisappear { pollingTask?.cancel(); typingTask?.cancel() }
+        .sheet(isPresented: $showSafetyNumber) {
+            SafetyNumberSheet(
+                contactName: thread.name ?? contactCode,
+                contactId: thread.contactId,
+                myUserId: myId
+            )
+            .fraiseTheme()
+        }
         .confirmationDialog("share", isPresented: $showAttach) {
             ForEach(state.varieties.prefix(5)) { v in
                 Button(v.name) {
@@ -256,22 +275,26 @@ struct ThreadView: View {
 
         let fetched = (try? await APIClient.shared.fetchThread(userCode: contactCode, token: token)) ?? []
         messages = fetched
-        decryptAll(messages)
+        await decryptAll(messages)
 
         try? await APIClient.shared.markThreadDelivered(userCode: contactCode, token: token)
         try? await APIClient.shared.markThreadRead(userCode: contactCode, token: token)
         loading = false
     }
 
-    private func decryptAll(_ msgs: [PlatformMessage]) {
+    @MainActor private func decryptAll(_ msgs: [PlatformMessage]) async {
         for msg in msgs {
             guard msg.senderId != myId else { continue }
             if let cached = MessageCache.get(msg.id) {
                 decrypted[msg.id] = cached; continue
             }
-            if let text = try? FraiseMessaging.shared.decrypt(message: msg) {
-                decrypted[msg.id] = text
-            } else {
+            do {
+                decrypted[msg.id] = try await FraiseMessaging.shared.decrypt(message: msg)
+            } catch FraiseMessagingError.identityKeyChanged {
+                // Surface key changes as a visible system message — the user must
+                // verify identity out of band to rule out MitM substitution.
+                decrypted[msg.id] = "⚠ encryption key changed — verify identity out of band"
+            } catch {
                 decrypted[msg.id] = "[encrypted]"
             }
         }
@@ -294,7 +317,7 @@ struct ThreadView: View {
             guard let b else { sending = false; return }
             bundle = b
 
-            let (wire, x3dhKey, _) = try FraiseMessaging.shared.encrypt(
+            let (wire, x3dhKey, _) = try await FraiseMessaging.shared.encrypt(
                 plaintext: text.isEmpty ? "(fraise object)" : text,
                 forUserId: thread.contactId,
                 bundle: b
@@ -335,8 +358,13 @@ struct ThreadView: View {
         pollingTask = Task {
             // Interval starts at 3 s and backs off to 15 s after 5 quiet rounds,
             // reducing battery drain when the conversation is idle.
+            // Maximum 200 iterations (~50 minutes at 15s) after which the thread
+            // stops polling automatically — prevents indefinite battery drain for
+            // users who leave the view open overnight.
             var quietRounds = 0
-            while !Task.isCancelled {
+            var iterations  = 0
+            while !Task.isCancelled && iterations < 200 {
+                iterations += 1
                 let interval: UInt64 = quietRounds >= 5 ? 15_000_000_000 : 3_000_000_000
                 try? await Task.sleep(nanoseconds: interval)
                 guard let token = Keychain.userToken else { continue }
@@ -351,13 +379,13 @@ struct ThreadView: View {
                 let typing  = (try? await typingResult)  ?? false
                 let newMsgs = (try? await newMsgsResult) ?? []
 
-                await MainActor.run {
-                    theyAreTyping = typing
-                    if !newMsgs.isEmpty {
-                        let existing = Set(messages.map { $0.id })
-                        let fresh = newMsgs.filter { !existing.contains($0.id) }
-                        if !fresh.isEmpty {
-                            decryptAll(fresh)
+                await MainActor.run { theyAreTyping = typing }
+                if !newMsgs.isEmpty {
+                    let existingIds = await MainActor.run { Set(messages.map { $0.id }) }
+                    let fresh = newMsgs.filter { !existingIds.contains($0.id) }
+                    if !fresh.isEmpty {
+                        await decryptAll(fresh)
+                        await MainActor.run {
                             messages.append(contentsOf: fresh)
                             Haptics.impact(.light)
                         }

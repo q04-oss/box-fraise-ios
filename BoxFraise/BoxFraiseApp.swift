@@ -1,6 +1,7 @@
 import SwiftUI
 import UserNotifications
 import StripePaymentSheet
+import os.log
 
 @main
 struct BoxFraiseApp: App {
@@ -44,16 +45,23 @@ struct BoxFraiseApp: App {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
+                // Key publication failure banner
+                .overlay(alignment: .top) {
+                    if appState.messagingKeysPublishFailed {
+                        KeysFailedBanner { appState.messagingKeysPublishFailed = false }
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
                 .onAppear {
                     appDelegate.appState = appState
                     AppSecurity.enforce()
                     appState.startNetworkMonitor()
-                    isScreenCaptured = Self.activeScreenIsCaptured
+                    isScreenCaptured = Self.isScreenBeingRecorded
                 }
                 .onReceive(NotificationCenter.default.publisher(
                     for: UIScreen.capturedDidChangeNotification)
                 ) { _ in
-                    isScreenCaptured = Self.activeScreenIsCaptured
+                    isScreenCaptured = Self.isScreenBeingRecorded
                 }
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -79,7 +87,7 @@ struct BoxFraiseApp: App {
 extension BoxFraiseApp {
     // UIScreen.main is deprecated in iOS 16. Prefer the scene-based accessor;
     // fall back to UIScreen.main only when no window scene is available.
-    static var activeScreenIsCaptured: Bool {
+    static var isScreenBeingRecorded: Bool {
         (UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.screen ?? UIScreen.main)
@@ -101,24 +109,24 @@ extension BoxFraiseApp {
                let biz = appState.approvedBusinesses.first(where: { $0.slug == slug }) {
                 appState.selectLocation(biz)
             } else {
-                appState.panel = .order
+                appState.navigate(to: .order)
             }
         case "/popups", "/popup":
-            appState.panel = .popups
+            appState.navigate(to: .popups)
         case "/profile":
-            appState.panel = appState.isSignedIn ? .profile : .auth
+            appState.navigate(to: appState.isSignedIn ? .profile : .auth)
         case "/verify":
-            appState.panel = .nfcVerify
+            appState.navigate(to: .nfcVerify)
         case "/history":
-            appState.panel = appState.isSignedIn ? .orderHistory : .auth
+            appState.navigate(to: appState.isSignedIn ? .orderHistory : .auth)
         case "/standing-orders":
-            appState.panel = appState.isSignedIn ? .standingOrders : .auth
+            appState.navigate(to: appState.isSignedIn ? .standingOrders : .auth)
         case "/inbox", "/messages":
-            appState.panel = appState.isSignedIn ? .messages : .auth
+            appState.navigate(to: appState.isSignedIn ? .messages : .auth)
         case "/referrals":
-            appState.panel = appState.isSignedIn ? .referrals : .auth
+            appState.navigate(to: appState.isSignedIn ? .referrals : .auth)
         case "/meet":
-            appState.panel = appState.isSignedIn ? .meet : .auth
+            appState.navigate(to: appState.isSignedIn ? .meet : .auth)
         default:
             break
         }
@@ -170,15 +178,58 @@ struct ReauthBanner: View {
     }
 }
 
+// MARK: - Key publication failure banner
+
+struct KeysFailedBanner: View {
+    @Environment(\.fraiseColors) private var c
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 11))
+                .foregroundStyle(c.background)
+            Text("encryption keys unavailable — new contacts can't message you")
+                .font(.mono(11))
+                .foregroundStyle(c.background)
+                .tracking(0.2)
+            Spacer()
+            Button(action: onDismiss) {
+                Text("×").font(.mono(14)).foregroundStyle(c.background)
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 10)
+        .background(Color.fraiseOrange)
+        .fraiseTheme()
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Offline banner") {
+    OfflineBanner().fraiseTheme()
+}
+
+#Preview("Reauth banner") {
+    ReauthBanner {}.fraiseTheme()
+}
+
+#Preview("Keys failed banner") {
+    KeysFailedBanner {}.fraiseTheme()
+}
+
 // MARK: - AppDelegate
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    var appState: AppState?
+    // Weak to avoid a retain cycle; BoxFraiseApp's @State owns the instance.
+    weak var appState: AppState?
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        Config.validate()
         UNUserNotificationCenter.current().delegate = self
         STPAPIClient.shared.publishableKey = Config.stripePublishableKey
         requestPushPermission(application)
@@ -198,8 +249,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // Push registration failed — non-fatal, features that need push will degrade silently.
-        _ = error
+        // Non-fatal — order-ready notifications will not arrive, but the app functions normally.
+        os_log(.info, "Push registration failed: %@", error.localizedDescription)
     }
 
     func userNotificationCenter(
@@ -208,7 +259,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let screen = response.notification.request.content.userInfo["screen"] as? String
-        Task { @MainActor in self.appState?.pendingScreen = screen }
+        Task { @MainActor in
+            guard self.appState != nil else {
+                os_log(.error, "AppDelegate: appState is nil — deep-link navigation lost for screen '%@'", screen ?? "nil")
+                return
+            }
+            self.appState?.pendingScreen = screen
+        }
         completionHandler()
     }
 
@@ -225,7 +282,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 if #available(iOS 16.2, *) {
                     updateOrderLiveActivity(orderId: orderId, status: status)
                 }
-                await appState?.refresh()
+                await appState?.refreshMapData()
             }
         }
         completionHandler([.banner, .sound, .badge])

@@ -4,8 +4,7 @@ struct StandingOrdersPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var orders: [StandingOrder] = []
-    @State private var loading = false
-    @State private var error: String?
+    @State private var loadState: ViewState<Void> = .idle
     @State private var creating = false
 
     var body: some View {
@@ -36,14 +35,14 @@ struct StandingOrdersPanel: View {
                     orders.insert(order, at: 0)
                     withAnimation { creating = false }
                 }
-            } else if loading {
+            } else if loadState.isLoading {
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(wide: true) }
+                        ForEach(0..<3, id: \.self) { _ in FraiseSkeletonRow(style: .wide) }
                     }.padding(Spacing.md)
                 }
-            } else if let err = error {
-                FraiseEmptyState(icon: "exclamationmark.circle", title: "couldn't load", subtitle: err)
+            } else if case .failed(let msg) = loadState {
+                FraiseErrorView(message: msg) { Task { await load() } }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if orders.isEmpty {
                 emptyView
@@ -116,13 +115,13 @@ struct StandingOrdersPanel: View {
 
     @MainActor private func load() async {
         guard let token = Keychain.userToken, state.user?.verified ?? false else { return }
-        loading = true; error = nil
+        loadState = .loading
         do {
             orders = try await APIClient.shared.fetchStandingOrders(token: token)
+            loadState = .loaded(())
         } catch {
-            self.error = error.localizedDescription
+            loadState = .failed(error.localizedDescription)
         }
-        loading = false
     }
 }
 
@@ -272,7 +271,7 @@ struct CreateStandingOrderView: View {
                     FraiseSectionLabel(text: "node")
                     ForEach(collections) { loc in
                         selectionRow(loc.name,
-                                     subtitle: loc.neighbourhood ?? loc.displayCity,
+                                     subtitle: loc.neighbourhood ?? loc.displayCity ?? "",
                                      trailing: "", selected: selectedLocationId == loc.id) {
                             selectedLocationId = loc.id
                             selectedLocationName = loc.name

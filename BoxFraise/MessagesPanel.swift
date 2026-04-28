@@ -4,7 +4,7 @@ struct MessagesPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var threads: [MessageThread] = []
-    @State private var loading = false
+    @State private var loadState: ViewState<Void> = .idle
     @State private var showStatusEditor = false
     @State private var statusDraft = ""
     @State private var selectedThread: MessageThread?
@@ -82,9 +82,9 @@ struct MessagesPanel: View {
                     }
 
                     // Thread list
-                    if loading && threads.isEmpty {
+                    if loadState.isLoading && threads.isEmpty {
                         ForEach(0..<5, id: \.self) { _ in
-                            FraiseSkeletonRow(wide: true).padding(Spacing.md)
+                            FraiseSkeletonRow(style: .wide).padding(Spacing.md)
                         }
                     } else {
                         if let d = dorotkaThread {
@@ -159,13 +159,13 @@ struct MessagesPanel: View {
 
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
-        loading = true
+        loadState = .loading
         async let t  = try? await APIClient.shared.fetchThreads(token: token)
         if let v = await t {
             threads = v
             state.totalUnreadMessages = v.reduce(0) { $0 + $1.unreadCount }
         }
-        loading = false
+        loadState = .loaded(())
         await loadOffers()
     }
 
@@ -252,11 +252,6 @@ private struct ThreadRow: View {
         }
     }
 
-    private func FraiseDateFormatter.thread(_ iso: String) -> String {
-        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
-        if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
 }
 
 // MARK: - Offers tab
@@ -650,9 +645,9 @@ private struct ComposeSheet: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { contact in
                             Button {
-                                let thread = existing.first { $0.contactId == (contact.contactId ?? contact.id) }
+                                let thread = existing.first { $0.contactId == contact.resolvedContactId }
                                     ?? MessageThread(
-                                        contactId: contact.contactId ?? contact.id,
+                                        contactId: contact.resolvedContactId,
                                         name: contact.name,
                                         userCode: contact.userCode,
                                         lastMessageId: nil, lastMessageAt: nil,
@@ -680,7 +675,7 @@ private struct ComposeSheet: View {
                                         }
                                     }
                                     Spacer()
-                                    if existing.contains(where: { $0.contactId == (contact.contactId ?? contact.id) }) {
+                                    if existing.contains(where: { $0.contactId == contact.resolvedContactId }) {
                                         Image(systemName: "bubble.left.fill")
                                             .font(.system(size: 11)).foregroundStyle(c.muted)
                                     }
@@ -694,16 +689,12 @@ private struct ComposeSheet: View {
                 }
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(c.background.ignoresSafeArea())
         .task {
             guard let token = Keychain.userToken else { return }
             contacts = (try? await APIClient.shared.fetchContacts(token: token)) ?? []
         }
-    }
-
-    private func FraiseDateFormatter.medium(_ iso: String) -> String {
-        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
-        return date.formatted(.dateTime.month(.wide).day())
     }
 }
 
@@ -757,11 +748,6 @@ private struct DorotkaRow: View {
         }
     }
 
-    private func FraiseDateFormatter.thread(_ iso: String) -> String {
-        guard let date = FraiseDateFormatter.date(from: iso) else { return "" }
-        if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
 }
 
 // MARK: - Status editor
@@ -805,6 +791,7 @@ private struct StatusEditorSheet: View {
 
             Spacer()
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(c.background.ignoresSafeArea())
     }
 }

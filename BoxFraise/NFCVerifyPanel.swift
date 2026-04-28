@@ -8,7 +8,7 @@ struct NFCVerifyPanel: View {
     @State private var outcome: ScanOutcome?
     @State private var error: String?
     @State private var delegate: NFCScanDelegate?
-    @State private var addedBusinessCode: String?
+    @State private var businessContactAdded = false
 
     enum ScanOutcome {
         case firstVerify(NFCVerifyResult)
@@ -76,13 +76,13 @@ struct NFCVerifyPanel: View {
                             bankRow("week \(streak)\(milestone ? " ★" : "")",
                                     label: milestone ? "milestone" : "streak",
                                     icon: milestone ? "star.fill" : "flame",
-                                    accent: milestone ? Color(hex: "F9A825") : nil)
+                                    accent: milestone ? Color.fraiseOrange : nil)
                         }
                     }
                     .background(c.card)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                        milestone ? Color(hex: "F9A825").opacity(0.5) : c.border,
+                        milestone ? Color.fraiseOrange.opacity(0.5) : c.border,
                         lineWidth: milestone ? 1 : 0.5))
                 }
 
@@ -341,33 +341,32 @@ struct NFCVerifyPanel: View {
     }
 
     private func businessContactButton(code: String, name: String) -> some View {
-        let added = addedBusinessCode == code
-        return Button {
-            guard !added, let token = Keychain.userToken else { return }
-            addedBusinessCode = code
+        Button {
+            guard !businessContactAdded, let token = Keychain.userToken else { return }
+            businessContactAdded = true
             Haptics.impact(.light)
             Task { try? await APIClient.shared.addBusinessContact(businessCode: code, token: token) }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: added ? "checkmark.circle.fill" : "mappin.circle")
+                Image(systemName: businessContactAdded ? "checkmark.circle.fill" : "mappin.circle")
                     .font(.system(size: 14))
-                    .foregroundStyle(added ? Color.fraiseGreen : c.muted)
-                Text(added ? "added to messages" : "message \(name.lowercased())")
+                    .foregroundStyle(businessContactAdded ? Color.fraiseGreen : c.muted)
+                Text(businessContactAdded ? "added to messages" : "message \(name.lowercased())")
                     .font(.mono(12)).foregroundStyle(c.text)
                 Spacer()
-                if !added {
+                if !businessContactAdded {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 11)).foregroundStyle(c.muted)
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
             .background(c.card)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                added ? Color.fraiseGreen.opacity(0.4) : c.border,
+            .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(
+                businessContactAdded ? Color.fraiseGreen.opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
-        .disabled(added)
+        .disabled(businessContactAdded)
     }
 
     private var doneButton: some View {
@@ -420,7 +419,12 @@ struct NFCVerifyPanel: View {
             scanning = false
             outcome = .firstVerify(r)
             if let user = state.user {
-                state.user = BoxUser(id: user.id, displayName: user.displayName, verified: true)
+                state.user = BoxUser(
+                    id: user.id, displayName: user.displayName, verified: true,
+                    isShop: user.isShop, fraiseChatEmail: user.fraiseChatEmail,
+                    currentStreakWeeks: user.currentStreakWeeks,
+                    socialTier: user.socialTier, status: user.status
+                )
             }
             Haptics.notification(.success)
         } catch {
@@ -469,6 +473,10 @@ final class NFCScanDelegate: NSObject, NFCTagReaderSessionDelegate {
     }
 
     func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+        guard tags.count == 1 else {
+            session.invalidate(errorMessage: "Multiple NFC tags detected. Hold near a single chip.")
+            return
+        }
         guard let tag = tags.first else { return }
         session.connect(to: tag) { error in
             if let error {

@@ -28,7 +28,7 @@ struct BusinessCallout: View {
                         .foregroundStyle(c.text)
 
                     HStack(spacing: 6) {
-                        if let place = business.neighbourhood ?? (business.displayCity.isEmpty ? nil : business.displayCity) {
+                        if let place = business.neighbourhood ?? business.displayCity {
                             Text(place.lowercased())
                                 .font(.mono(11)).foregroundStyle(c.muted).tracking(0.3)
                         }
@@ -99,8 +99,8 @@ struct BusinessCallout: View {
             }
         }
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(c.border.opacity(0.4), lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.callout))
+        .overlay(RoundedRectangle(cornerRadius: Radius.callout).strokeBorder(c.border.opacity(0.4), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.18), radius: 24, y: 6)
     }
 }

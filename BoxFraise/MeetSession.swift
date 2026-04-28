@@ -15,8 +15,8 @@ enum MeetState: Equatable {
     /// Terminal states require no further user interaction with the session.
     var isTerminal: Bool {
         switch self {
-        case .done, .error: return true
-        default:            return false
+        case .done, .error:                              return true
+        case .idle, .starting, .scanning, .found, .confirming: return false
         }
     }
 }
@@ -26,6 +26,8 @@ enum MeetState: Equatable {
 private struct DiscoveredPeer {
     let peripheral: CBPeripheral
     let rssi: Int
+    // rssi in dBm. Aliased for readability at call sites that care about signal strength.
+    var signalStrength: Int { rssi }
 }
 
 // MARK: - Session
@@ -35,7 +37,9 @@ final class MeetSession: NSObject {
 
     static let serviceUUID   = CBUUID(string: "6F2A15EA-0001-4001-8001-000000000001")
     static let tokenCharUUID = CBUUID(string: "6F2A15EA-0001-4001-8001-000000000002")
-    static let rssiThreshold = -65  // ~1 metre
+    // -65 dBm ≈ 1 metre in open air. The threshold filters out devices in adjacent rooms or on the street.
+    // Signal strength varies with environment — walls, bodies, and RF interference all reduce range.
+    static let rssiThreshold = -65
 
     var state: MeetState = .idle
     var myToken: String = ""
@@ -43,7 +47,7 @@ final class MeetSession: NSObject {
     private var peripheral: CBPeripheralManager?
     private var central: CBCentralManager?
     private var characteristic: CBMutableCharacteristic?
-    private var discovered: [UUID: DiscoveredPeer] = [:]
+    private var discoveredPeers: [UUID: DiscoveredPeer] = [:]
 
     // MARK: - Lifecycle
 
@@ -51,18 +55,20 @@ final class MeetSession: NSObject {
         myToken = token
         state = .starting
         // queue: nil → delegates called on main queue, keeping all state mutations on main thread.
+        // CBPeripheral.identifier is stable within a session; may change across app restarts — do not persist.
         peripheral = CBPeripheralManager(delegate: self, queue: nil)
         central    = CBCentralManager(delegate: self, queue: nil)
     }
 
+    /// Idempotent — safe to call multiple times. Resets to .idle regardless of current state.
     func stop() {
         peripheral?.stopAdvertising()
         peripheral?.removeAllServices()
         central?.stopScan()
-        for (_, peer) in discovered { central?.cancelPeripheralConnection(peer.peripheral) }
+        for (_, peer) in discoveredPeers { central?.cancelPeripheralConnection(peer.peripheral) }
         peripheral = nil
         central    = nil
-        discovered = [:]
+        discoveredPeers = [:]
         state = .idle
     }
 }
@@ -106,6 +112,8 @@ extension MeetSession: CBCentralManagerDelegate {
 
     func centralManagerDidUpdateState(_ cm: CBCentralManager) {
         guard cm.state == .poweredOn else { return }
+        // AllowDuplicates: false — prevents repeated didDiscover calls for the same peripheral.
+        // We connect on first discovery only; duplicates would trigger redundant connection attempts.
         cm.scanForPeripherals(withServices: [Self.serviceUUID],
                               options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         state = .scanning
@@ -115,9 +123,9 @@ extension MeetSession: CBCentralManagerDelegate {
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let rssi = RSSI.intValue
         guard rssi > Self.rssiThreshold,
-              discovered[peripheral.identifier] == nil else { return }
+              discoveredPeers[peripheral.identifier] == nil else { return }
         peripheral.delegate = self
-        discovered[peripheral.identifier] = DiscoveredPeer(peripheral: peripheral, rssi: rssi)
+        discoveredPeers[peripheral.identifier] = DiscoveredPeer(peripheral: peripheral, rssi: rssi)
         cm.connect(peripheral)
     }
 
@@ -126,7 +134,7 @@ extension MeetSession: CBCentralManagerDelegate {
     }
 
     func centralManager(_ cm: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        discovered.removeValue(forKey: peripheral.identifier)
+        discoveredPeers.removeValue(forKey: peripheral.identifier)
     }
 }
 
