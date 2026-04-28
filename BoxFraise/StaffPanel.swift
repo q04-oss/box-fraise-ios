@@ -8,7 +8,7 @@ struct StaffPanel: View {
     @State private var error: String?
     @State private var statusFilter = "all"
 
-    private let statuses = ["all", "paid", "preparing", "ready", "collected"]
+    private let statuses = ["all", "paid", "ready", "collected"]
 
     private var filteredOrders: [StaffOrder] {
         statusFilter == "all"
@@ -211,20 +211,18 @@ struct StaffOrderCard: View {
 
     private var nextAction: (label: String, action: String)? {
         switch order.status {
-        case "paid":      return ("prepare", "prepare")
-        case "preparing": return ("mark ready", "ready")
-        case "ready":     return ("collected", "collect")
-        default:          return nil
+        case "paid":  return ("mark ready", "ready")
+        case "ready": return ("collected", "collect")
+        default:      return nil
         }
     }
 
     private var statusColor: Color {
         switch order.status {
-        case "collected": return Color(hex: "4CAF50")
-        case "ready":     return Color(hex: "2196F3")
-        case "preparing": return Color(hex: "FF9800")
-        case "paid":      return c.muted
-        default:          return c.border
+        case "collected":           return Color(hex: "4CAF50")
+        case "ready":               return Color(hex: "2196F3")
+        case "preparing", "paid":   return c.muted
+        default:                    return c.border
         }
     }
 

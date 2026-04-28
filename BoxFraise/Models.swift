@@ -143,7 +143,7 @@ struct PastOrder: Codable, Identifiable {
     let createdAt: String
 
     var totalFormatted: String { String(format: "CA$%.2f", Double(totalCents) / 100.0) }
-    var isPaid: Bool      { status == "paid" || status == "preparing" || status == "ready" }
+    var isPaid: Bool      { status == "paid" || status == "ready" }
     var isCollected: Bool { status == "collected" }
 }
 

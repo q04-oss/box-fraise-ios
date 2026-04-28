@@ -87,10 +87,10 @@ struct OrderHistoryCard: View {
 
     private var statusColor: Color {
         switch order.status {
-        case "collected": return Color(hex: "4CAF50")
-        case "ready":     return Color(hex: "2196F3")
-        case "preparing": return Color(hex: "FF9800")
-        default:          return c.muted
+        case "collected":           return Color(hex: "4CAF50")
+        case "ready":               return Color(hex: "2196F3")
+        case "preparing", "paid":   return c.muted
+        default:                    return c.border
         }
     }
 

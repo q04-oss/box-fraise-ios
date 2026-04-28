@@ -7,7 +7,7 @@ import SwiftUI
 
 public struct BoxFraiseOrderAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        public var status: String       // "paid" | "preparing" | "ready" | "collected"
+        public var status: String       // "paid" | "ready" | "collected"
         public var statusLabel: String
     }
 
@@ -89,10 +89,14 @@ struct BoxFraiseOrderLiveActivity: Widget {
 
 struct OrderProgressBar: View {
     let status: String
-    private let steps = ["paid", "preparing", "ready", "collected"]
+    private let steps = ["paid", "ready", "collected"]
+
+    private var normalised: String {
+        status == "preparing" ? "ready" : status
+    }
 
     private var progress: CGFloat {
-        CGFloat((steps.firstIndex(of: status) ?? 0) + 1) / CGFloat(steps.count)
+        CGFloat((steps.firstIndex(of: normalised) ?? 0) + 1) / CGFloat(steps.count)
     }
 
     var body: some View {
