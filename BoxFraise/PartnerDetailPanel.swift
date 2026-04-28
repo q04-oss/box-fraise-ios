@@ -8,11 +8,7 @@ struct PartnerDetailPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                Button { state.panel = .home } label: {
-                    Text("← back")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = .home }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("example")

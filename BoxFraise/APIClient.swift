@@ -32,6 +32,12 @@ actor APIClient {
         return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     }()
 
+    private static let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
+
     // HMAC signing secret — stored as bytes so it doesn't appear in binary strings output
     private static let signingKey = SymmetricKey(data: Data([
         0x66, 0x72, 0x61, 0x69, 0x73, 0x65, 0x2d, 0x72,  // fraise-r
@@ -76,11 +82,11 @@ actor APIClient {
 
         if !(200...299).contains(status) {
             if status == 401 { throw APIError.unauthorized }
-            let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+            let msg = (try? Self.decoder.decode([String: String].self, from: data))?["error"]
             throw APIError.serverError(msg ?? "HTTP \(status)")
         }
 
-        return try JSONDecoder().decode(T.self, from: data)
+        return try Self.decoder.decode(T.self, from: data)
     }
 
     // Raw request builder — for endpoints needing custom headers (staff, walk-in)
@@ -190,7 +196,7 @@ actor APIClient {
             "x-staff-pin":   pin,
             "Authorization": "Bearer \(token)",
         ])
-        return try JSONDecoder().decode([StaffOrder].self, from: data)
+        return try Self.decoder.decode([StaffOrder].self, from: data)
     }
 
     func staffAction(_ action: String, orderId: Int, pin: String) async throws {
@@ -203,7 +209,7 @@ actor APIClient {
     func fetchWalkInInventory(locationId: Int) async throws -> [WalkInItem] {
         let url = URL(string: "https://fraise.box/api/walkin/inventory?location_id=\(locationId)")!
         let data = try await rawRequest(url: url)
-        return (try? JSONDecoder().decode([WalkInItem].self, from: data)) ?? []
+        return (try? Self.decoder.decode([WalkInItem].self, from: data)) ?? []
     }
 
     func createWalkInOrder(nfcToken: String, chocolate: String, finish: String, customerEmail: String) async throws -> JoinResponse {
@@ -216,7 +222,7 @@ actor APIClient {
         let data = try await rawRequest(url: url, method: "POST", headers: [
             "Content-Type": "application/json"
         ], body: body)
-        return try JSONDecoder().decode(JoinResponse.self, from: data)
+        return try Self.decoder.decode(JoinResponse.self, from: data)
     }
 }
 
@@ -228,5 +234,4 @@ struct PopupsResponse: Decodable { let popups: [FraisePopup] }
 
 struct JoinResponse: Decodable {
     let clientSecret: String
-    enum CodingKeys: String, CodingKey { case clientSecret = "client_secret" }
 }

@@ -17,21 +17,14 @@ struct Business: Codable, Identifiable {
     let approvedByAdmin: Bool?
     let locationId: Int?
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, address, lat, lng, type, description, hours, neighbourhood, city
-        case approvedByAdmin = "approved_by_admin"
-        case locationId = "location_id"
-    }
-
-    var isApproved: Bool { approvedByAdmin ?? false }
-    var isCollection: Bool { type == "collection" }
+    var isApproved: Bool    { approvedByAdmin ?? false }
+    var isCollection: Bool  { type == "collection" }
+    var displayCity: String { city ?? neighbourhood ?? "" }
 
     var coordinate: CLLocationCoordinate2D? {
         guard let lat, let lng else { return nil }
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
-
-    var displayCity: String { city ?? neighbourhood ?? "" }
 }
 
 // MARK: - Auth
@@ -41,25 +34,12 @@ struct AuthResponse: Codable {
     let userId: Int
     let displayName: String?
     let verified: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case token
-        case userId = "user_id"
-        case displayName = "display_name"
-        case verified
-    }
 }
 
 struct BoxUser: Codable {
     let id: Int
     let displayName: String?
     let verified: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case displayName = "display_name"
-        case verified
-    }
 }
 
 // MARK: - Popup
@@ -77,19 +57,8 @@ struct FraisePopup: Codable, Identifiable {
     let businessName: String
     let businessSlug: String
 
-    enum CodingKeys: String, CodingKey {
-        case id, title, description, status
-        case priceCents   = "price_cents"
-        case minSeats     = "min_seats"
-        case maxSeats     = "max_seats"
-        case seatsClaimed = "seats_claimed"
-        case eventDate    = "event_date"
-        case businessName = "business_name"
-        case businessSlug = "business_slug"
-    }
-
-    var isOpen: Bool        { status == "open" || status == "threshold_met" }
-    var isConfirmed: Bool   { status == "confirmed" }
+    var isOpen: Bool         { status == "open" || status == "threshold_met" }
+    var isConfirmed: Bool    { status == "confirmed" }
     var isThresholdMet: Bool { status == "threshold_met" }
     var thresholdPct: Double { minSeats > 0 ? min(1.0, Double(seatsClaimed) / Double(minSeats)) : 0 }
     var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
@@ -104,12 +73,7 @@ struct Variety: Codable, Identifiable {
     let priceCents: Int
     let active: Bool?
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, description, active
-        case priceCents = "price_cents"
-    }
-
-    var priceFormatted: String { "CA$\(String(format: "%.2f", Double(priceCents) / 100))" }
+    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 struct OrderState {
@@ -122,13 +86,13 @@ struct OrderState {
     var finishName: String?
     var quantity: Int = 4
 
-    var totalCents: Int { (priceCents ?? 0) * quantity }
+    var totalCents: Int  { (priceCents ?? 0) * quantity }
     var isComplete: Bool { varietyId != nil && chocolate != nil && finish != nil }
 
     mutating func reset() {
         varietyId = nil; varietyName = nil; priceCents = nil
         chocolate = nil; chocolateName = nil
-        finish = nil; finishName = nil
+        finish = nil;    finishName = nil
         quantity = 4
     }
 }
@@ -136,27 +100,19 @@ struct OrderState {
 struct OrderResponse: Codable {
     let id: Int
     let clientSecret: String
-    enum CodingKeys: String, CodingKey {
-        case id
-        case clientSecret = "client_secret"
-    }
 }
 
 struct ConfirmedOrder: Codable {
     let id: Int
     let status: String
     let varietyName: String?
-    enum CodingKeys: String, CodingKey {
-        case id, status
-        case varietyName = "variety_name"
-    }
 }
 
 let CHOCOLATES: [(id: String, name: String)] = [
-    ("dark",       "dark"),
-    ("milk",       "milk"),
-    ("white",      "white"),
-    ("none",       "no chocolate"),
+    ("dark",  "dark"),
+    ("milk",  "milk"),
+    ("white", "white"),
+    ("none",  "no chocolate"),
 ]
 
 let FINISHES: [(id: String, name: String)] = [
@@ -182,18 +138,8 @@ struct PastOrder: Codable, Identifiable {
     let slotTime: String?
     let createdAt: String
 
-    enum CodingKeys: String, CodingKey {
-        case id, chocolate, finish, quantity, status, rating
-        case varietyName = "variety_name"
-        case totalCents  = "total_cents"
-        case nfcToken    = "nfc_token"
-        case slotDate    = "slot_date"
-        case slotTime    = "slot_time"
-        case createdAt   = "created_at"
-    }
-
-    var totalFormatted: String { "CA$\(String(format: "%.2f", Double(totalCents) / 100))" }
-    var isPaid: Bool { status == "paid" || status == "preparing" || status == "ready" }
+    var totalFormatted: String { String(format: "CA$%.2f", Double(totalCents) / 100.0) }
+    var isPaid: Bool      { status == "paid" || status == "preparing" || status == "ready" }
     var isCollected: Bool { status == "collected" }
 }
 
@@ -212,22 +158,12 @@ struct StaffOrder: Codable, Identifiable {
     let slotDate: String?
     let slotTime: String?
 
-    enum CodingKeys: String, CodingKey {
-        case id, chocolate, finish, quantity, status
-        case customerEmail = "customer_email"
-        case varietyName   = "variety_name"
-        case totalCents    = "total_cents"
-        case nfcToken      = "nfc_token"
-        case slotDate      = "slot_date"
-        case slotTime      = "slot_time"
-    }
-
     var summary: String {
         [varietyName, chocolate, finish].compactMap { $0 }.joined(separator: " · ").lowercased()
     }
 }
 
-// MARK: - NFC Verify Result
+// MARK: - NFC
 
 struct NFCVerifyResult: Codable {
     let verified: Bool
@@ -235,14 +171,6 @@ struct NFCVerifyResult: Codable {
     let quantity: Int?
     let farm: String?
     let harvestDate: String?
-
-    enum CodingKeys: String, CodingKey {
-        case verified
-        case varietyName = "variety_name"
-        case quantity
-        case farm
-        case harvestDate = "harvest_date"
-    }
 }
 
 // MARK: - Walk-in
@@ -257,16 +185,7 @@ struct WalkInToken: Codable {
     let claimed: Bool
     let allowsWalkin: Bool
 
-    enum CodingKeys: String, CodingKey {
-        case id, token, claimed
-        case locationName   = "location_name"
-        case varietyName    = "variety_name"
-        case priceCents     = "price_cents"
-        case stockRemaining = "stock_remaining"
-        case allowsWalkin   = "allows_walkin"
-    }
-
-    var priceFormatted: String { "CA$\(String(format: "%.2f", Double(priceCents) / 100))" }
+    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 struct WalkInItem: Codable, Identifiable {
@@ -275,27 +194,13 @@ struct WalkInItem: Codable, Identifiable {
     let priceCents: Int
     let stockRemaining: Int?
 
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        case priceCents     = "price_cents"
-        case stockRemaining = "stock_remaining"
-    }
-
-    var priceFormatted: String { "CA$\(String(format: "%.2f", Double(priceCents) / 100))" }
+    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 // MARK: - Panel
 
 enum Panel: Equatable {
-    case home
-    case auth
-    case profile
-    case popups
-    case order
-    case orderHistory
-    case staff
-    case nfcVerify
-    case walkIn
+    case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
     case partnerDetail(Business)
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {

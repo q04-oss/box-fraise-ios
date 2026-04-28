@@ -11,11 +11,7 @@ struct NFCVerifyPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            Button { state.panel = .home } label: {
-                Text("← back")
-                    .font(.mono(13))
-                    .foregroundStyle(c.muted)
-            }
+            FraiseBackButton { state.panel = .home }
 
             Text("verify pickup")
                 .font(.system(size: 28, design: .serif))

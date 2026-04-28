@@ -17,11 +17,7 @@ struct WalkInPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button { state.panel = state.isSignedIn ? .staff : .home } label: {
-                    Text("← back")
-                        .font(.mono(12))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = state.isSignedIn ? .staff : .home }
                 Spacer()
                 Text("walk-in")
                     .font(.system(size: 14, design: .serif))
@@ -41,7 +37,7 @@ struct WalkInPanel: View {
                     VStack(alignment: .leading, spacing: Spacing.lg) {
                         // NFC token
                         VStack(alignment: .leading, spacing: 6) {
-                            sectionLabel("box token")
+                            FraiseSectionLabel("box token")
                             TextField("scan or enter token", text: $nfcToken)
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
@@ -56,7 +52,7 @@ struct WalkInPanel: View {
                         // Inventory list
                         if !state.walkInInventory.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                sectionLabel("variety")
+                                FraiseSectionLabel("variety")
                                 ForEach(state.walkInInventory) { item in
                                     Button {
                                         selectedItem = item
@@ -96,7 +92,7 @@ struct WalkInPanel: View {
 
                         // Customer email
                         VStack(alignment: .leading, spacing: 6) {
-                            sectionLabel("customer email")
+                            FraiseSectionLabel("customer email")
                             TextField("optional", text: $customerEmail)
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
@@ -181,17 +177,9 @@ struct WalkInPanel: View {
         .padding(Spacing.md)
     }
 
-    private func sectionLabel(_ label: String) -> some View {
-        Text(label)
-            .font(.mono(9))
-            .foregroundStyle(c.muted)
-            .tracking(1.5)
-            .textCase(.uppercase)
-    }
-
     private func pickerRow(_ label: String, options: [(id: String, name: String)], selected: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel(label)
+            FraiseSectionLabel(label)
             HStack(spacing: 8) {
                 ForEach(options, id: \.id) { opt in
                     Button {

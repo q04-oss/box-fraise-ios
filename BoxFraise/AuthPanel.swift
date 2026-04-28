@@ -16,12 +16,7 @@ struct AuthPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                // Back
-                Button { state.panel = .home } label: {
-                    Text("← back")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = .home }
 
                 Text("sign in to box fraise")
                     .font(.system(size: 22, design: .serif))

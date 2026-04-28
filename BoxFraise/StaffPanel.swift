@@ -19,11 +19,7 @@ struct StaffPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button { state.panel = .home } label: {
-                    Text("← back")
-                        .font(.mono(12))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = .home }
                 Spacer()
                 Text("staff")
                     .font(.system(size: 14, design: .serif))

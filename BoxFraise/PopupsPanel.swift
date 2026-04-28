@@ -10,11 +10,7 @@ struct PopupsPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Button { state.panel = .home } label: {
-                    Text("← back")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = .home }
 
                 Text("popups")
                     .font(.system(size: 28, design: .serif))

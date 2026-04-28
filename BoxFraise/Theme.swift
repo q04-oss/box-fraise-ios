@@ -86,3 +86,31 @@ extension View {
         modifier(FraiseThemeModifier())
     }
 }
+
+// MARK: - Shared UI components
+
+struct FraiseBackButton: View {
+    @Environment(\.fraiseColors) private var c
+    let label: String
+    let action: () -> Void
+    init(_ label: String = "← back", action: @escaping () -> Void) {
+        self.label = label; self.action = action
+    }
+    var body: some View {
+        Button(action: action) {
+            Text(label).font(.mono(12)).foregroundStyle(c.muted)
+        }
+    }
+}
+
+struct FraiseSectionLabel: View {
+    @Environment(\.fraiseColors) private var c
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.mono(9))
+            .foregroundStyle(c.muted)
+            .tracking(1.5)
+            .textCase(.uppercase)
+    }
+}

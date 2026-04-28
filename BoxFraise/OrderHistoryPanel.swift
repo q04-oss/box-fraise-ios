@@ -9,11 +9,7 @@ struct OrderHistoryPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button { state.panel = .profile } label: {
-                    Text("← back")
-                        .font(.mono(12))
-                        .foregroundStyle(c.muted)
-                }
+                FraiseBackButton { state.panel = .profile }
                 Spacer()
                 Text("orders")
                     .font(.system(size: 14, design: .serif))

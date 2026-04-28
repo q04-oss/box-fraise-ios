@@ -65,7 +65,7 @@ struct OrderPanel: View {
 
     private var varietyStep: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            stepLabel("strawberry")
+            FraiseSectionLabel("strawberry")
             if state.varieties.isEmpty {
                 ProgressView().tint(c.muted)
             } else {
@@ -91,7 +91,7 @@ struct OrderPanel: View {
     private var chocolateStep: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             backButton { state.orderState.varietyId = nil }
-            stepLabel("chocolate")
+            FraiseSectionLabel("chocolate")
             ForEach(CHOCOLATES, id: \.id) { choc in
                 selectionRow(
                     title: choc.name,
@@ -112,7 +112,7 @@ struct OrderPanel: View {
     private var finishStep: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             backButton { state.orderState.chocolate = nil }
-            stepLabel("finish")
+            FraiseSectionLabel("finish")
             ForEach(FINISHES, id: \.id) { fin in
                 selectionRow(
                     title: fin.name,
@@ -133,7 +133,7 @@ struct OrderPanel: View {
     private var reviewStep: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             backButton { state.orderState.finish = nil }
-            stepLabel("review")
+            FraiseSectionLabel("review")
 
             VStack(spacing: 0) {
                 reviewRow("variety",   value: order.varietyName ?? "")
@@ -252,14 +252,6 @@ struct OrderPanel: View {
     }
 
     // MARK: - Helpers
-
-    private func stepLabel(_ label: String) -> some View {
-        Text(label)
-            .font(.mono(9))
-            .foregroundStyle(c.muted)
-            .tracking(1.5)
-            .textCase(.uppercase)
-    }
 
     private func backButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
