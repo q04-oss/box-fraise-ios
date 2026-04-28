@@ -9,14 +9,23 @@ enum AppSecurity {
 
     // MARK: - Jailbreak detection
 
+    // Cached in-process. A static stored in memory can't be cleared by an attacker
+    // the way a UserDefaults flag can. Resets to nil on next app launch, re-running
+    // the checks — which is desirable (device state may have changed).
+    private static var _jailbreakCached: Bool?
+
     static func isJailbroken() -> Bool {
+        if let cached = _jailbreakCached { return cached }
         #if targetEnvironment(simulator)
+        _jailbreakCached = false
         return false
         #else
-        return hasJailbreakFiles()
+        let result = hasJailbreakFiles()
             || canWriteOutsideSandbox()
             || hasSuspiciousURLSchemes()
             || hasDynamicLibraryInjection()
+        _jailbreakCached = result
+        return result
         #endif
     }
 
@@ -44,8 +53,8 @@ enum AppSecurity {
 
     private static func hasSuspiciousURLSchemes() -> Bool {
         let schemes = ["cydia://", "sileo://", "zbra://", "filza://"]
-        return schemes.contains {
-            UIApplication.shared.canOpenURL(URL(string: $0)!)
+        return schemes.compactMap { URL(string: $0) }.contains {
+            UIApplication.shared.canOpenURL($0)
         }
     }
 
@@ -57,7 +66,7 @@ enum AppSecurity {
 
     static func isDebuggerAttached() -> Bool {
         #if DEBUG
-        return false // Allow debugger in development
+        return false
         #else
         var info = kinfo_proc()
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
@@ -70,32 +79,32 @@ enum AppSecurity {
 
     // MARK: - Enforcement
 
-    /// Call on app launch. Terminates the app if running in a compromised environment.
     static func enforce() {
-        if isDebuggerAttached() {
-            exit(0)
-        }
-        if isJailbroken() {
-            // Degrade silently rather than crash — crashing is more visible to attackers
-            // In production you may want to show an alert and exit
-            UserDefaults.standard.set(true, forKey: "fraise_compromised")
-        }
+        if isDebuggerAttached() { exit(0) }
+        _ = isJailbroken() // warm the in-process cache at launch
+        // Intentionally NOT persisting to UserDefaults: a stored flag can be
+        // cleared by an attacker with device access. isCompromised re-evaluates
+        // against the in-process cache instead.
     }
 
-    static var isCompromised: Bool {
-        UserDefaults.standard.bool(forKey: "fraise_compromised")
-    }
+    static var isCompromised: Bool { isJailbroken() }
 }
 
 // MARK: - Certificate pinning delegate
 
 final class PinningDelegate: NSObject, URLSessionDelegate {
-    // SHA-256 of the SubjectPublicKeyInfo (SPKI) for fraise.box
-    // To get this value run:
-    //   openssl s_client -connect fraise.box:443 | openssl x509 -pubkey -noout |
-    //   openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
+    // SHA-256 of the SubjectPublicKeyInfo (SPKI) for fraise.box.
+    // To regenerate after a cert rotation:
+    //   openssl s_client -connect fraise.box:443 </dev/null | \
+    //   openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | \
+    //   openssl dgst -sha256 -binary | base64
+    //
+    // Keep TWO hashes: current cert + the next one (add before the rotation,
+    // remove the old one after). Let's Encrypt renews every ~60 days so
+    // a release with the backup hash needs to ship before the renewal fires.
     private static let pinnedHashes: Set<String> = [
-        "4ds9LCAvlHQB8boxWg9GOhXP4kY7D39TGVCMkbiPYu0=",
+        "4ds9LCAvlHQB8boxWg9GOhXP4kY7D39TGVCMkbiPYu0=",   // current
+        // "REPLACE_WITH_NEXT_CERT_SPKI_HASH=",            // add before next renewal
     ]
 
     func urlSession(
@@ -109,15 +118,13 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
             return
         }
 
-        // Standard trust evaluation first
-        var secResult = SecTrustResultType.invalid
-        SecTrustEvaluate(serverTrust, &secResult)
-        guard secResult == .unspecified || secResult == .proceed else {
+        // Use non-deprecated SecTrustEvaluateWithError (replaces SecTrustEvaluate)
+        var evalError: CFError?
+        guard SecTrustEvaluateWithError(serverTrust, &evalError) else {
             completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
 
-        // Extract public key hash from the leaf certificate
         guard let leafCert = SecTrustGetCertificateAtIndex(serverTrust, 0),
               let publicKey = SecCertificateCopyKey(leafCert),
               let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, nil) as Data? else {
@@ -158,7 +165,6 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
                            0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b,
                            0x81, 0x04, 0x00, 0x22, 0x03, 0x62, 0x00])
         } else {
-            // Unknown key type — hash raw key bytes as fallback
             let digest = SHA256.hash(data: keyData)
             return Data(digest).base64EncodedString()
         }

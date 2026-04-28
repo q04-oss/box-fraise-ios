@@ -205,49 +205,86 @@ func ratchetDecrypt(state: RatchetState, message: EncryptedMessage) throws -> (s
 // MARK: - Key Store
 
 enum MessagingKeyStore {
-    private static let identityTag   = "com.boxfraise.messaging.identity"
-    private static let signedPreTag  = "com.boxfraise.messaging.signedprekey"
-    private static let sessionsKey   = "fraise_messaging_sessions"
+    private static let identityTag    = "com.boxfraise.messaging.identity"
+    private static let signedPreTag   = "com.boxfraise.messaging.signedprekey"
+    private static let sessionService = "com.boxfraise.messaging.sessions"
+    // Serialised access to all Keychain + key-material operations
+    private static let lock           = NSLock()
 
-    static var identityKey: MessagingKeyPair   { loadOrCreate(tag: identityTag) }
-    static var signedPreKey: MessagingKeyPair  { loadOrCreate(tag: signedPreTag) }
+    static var identityKey: MessagingKeyPair  { loadOrCreate(tag: identityTag) }
+    static var signedPreKey: MessagingKeyPair { loadOrCreate(tag: signedPreTag) }
 
     static func session(for userId: Int) -> RatchetState? {
-        guard let dict = UserDefaults.standard.dictionary(forKey: sessionsKey),
-              let data = dict[String(userId)] as? Data else { return nil }
+        lock.lock(); defer { lock.unlock() }
+        guard let data = loadSession(account: String(userId)) else { return nil }
         return try? JSONDecoder().decode(RatchetState.self, from: data)
     }
 
     static func save(_ state: RatchetState, for userId: Int) {
-        var dict = UserDefaults.standard.dictionary(forKey: sessionsKey) ?? [:]
-        dict[String(userId)] = try? JSONEncoder().encode(state)
-        UserDefaults.standard.set(dict, forKey: sessionsKey)
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        lock.lock(); defer { lock.unlock() }
+        saveSession(data, account: String(userId))
     }
 
     static func hasSession(for userId: Int) -> Bool { session(for: userId) != nil }
 
+    // MARK: - Private
+
     private static func loadOrCreate(tag: String) -> MessagingKeyPair {
-        if let raw = keychainLoad(tag: tag),
+        lock.lock(); defer { lock.unlock() }
+        if let raw = keychainLoadKey(tag: tag),
            let priv = try? Curve25519.KeyAgreement.PrivateKey(rawRepresentation: raw) {
             return MessagingKeyPair(privateKey: priv)
         }
         let kp = MessagingKeyPair.generate()
-        keychainSave(kp.privateKey.rawRepresentation, tag: tag)
+        keychainSaveKey(kp.privateKey.rawRepresentation, tag: tag)
         return kp
     }
 
-    private static func keychainSave(_ data: Data, tag: String) {
-        let q: [CFString: Any] = [kSecClass: kSecClassKey, kSecAttrApplicationTag: Data(tag.utf8),
-                                   kSecValueData: data, kSecAttrSynchronizable: kCFBooleanFalse as Any]
+    // ── Identity / signed-prekey pair storage (kSecClassKey) ──────────────────
+
+    private static func keychainSaveKey(_ data: Data, tag: String) {
+        let q: [CFString: Any] = [kSecClass: kSecClassKey,
+                                   kSecAttrApplicationTag: Data(tag.utf8),
+                                   kSecValueData: data,
+                                   kSecAttrSynchronizable: kCFBooleanFalse as Any]
         SecItemDelete(q as CFDictionary)
         SecItemAdd(q as CFDictionary, nil)
     }
 
-    private static func keychainLoad(tag: String) -> Data? {
-        let q: [CFString: Any] = [kSecClass: kSecClassKey, kSecAttrApplicationTag: Data(tag.utf8),
-                                   kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
+    private static func keychainLoadKey(tag: String) -> Data? {
+        let q: [CFString: Any] = [kSecClass: kSecClassKey,
+                                   kSecAttrApplicationTag: Data(tag.utf8),
+                                   kSecReturnData: true,
+                                   kSecMatchLimit: kSecMatchLimitOne]
         var result: AnyObject?
         SecItemCopyMatching(q as CFDictionary, &result)
         return result as? Data
+    }
+
+    // ── Ratchet session state (kSecClassGenericPassword, one item per peer) ───
+    // Stored in Keychain rather than UserDefaults because it contains live chain
+    // key material. UserDefaults is unencrypted on disk and included in backups.
+
+    private static func loadSession(account: String) -> Data? {
+        let q: [CFString: Any] = [kSecClass:       kSecClassGenericPassword,
+                                   kSecAttrService:  sessionService,
+                                   kSecAttrAccount:  account,
+                                   kSecReturnData:   true,
+                                   kSecMatchLimit:   kSecMatchLimitOne,
+                                   kSecAttrSynchronizable: kCFBooleanFalse as Any]
+        var result: AnyObject?
+        SecItemCopyMatching(q as CFDictionary, &result)
+        return result as? Data
+    }
+
+    private static func saveSession(_ data: Data, account: String) {
+        let base: [CFString: Any] = [kSecClass:      kSecClassGenericPassword,
+                                      kSecAttrService: sessionService,
+                                      kSecAttrAccount: account,
+                                      kSecAttrSynchronizable: kCFBooleanFalse as Any]
+        SecItemDelete(base as CFDictionary)
+        var addQ = base; addQ[kSecValueData] = data
+        SecItemAdd(addQ as CFDictionary, nil)
     }
 }

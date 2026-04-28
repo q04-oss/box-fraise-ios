@@ -154,6 +154,9 @@ struct ReauthBanner: View {
 // MARK: - App config
 
 enum Config {
+    // TODO before production: move to Secrets.xcconfig (gitignored) and load via
+    // Bundle.main.infoDictionary["STRIPE_PUBLISHABLE_KEY"]. Current value is the
+    // Stripe test key — safe to expose, but prod key must never be in source.
     static let stripePublishableKey = "pk_test_51RcAlhKvPGIzTFOS9MjkghFT8B5Y2e4JSbEhP6DOV7EU1Pe47JS4X1Jslm6fukkyp8DYIgtJjJ5zLUZkbrnNBaJX00RINxJvdT"
 }
 
@@ -191,7 +194,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let screen = response.notification.request.content.userInfo["screen"] as? String
-        DispatchQueue.main.async { self.appState?.pendingScreen = screen }
+        Task { @MainActor in self.appState?.pendingScreen = screen }
         completionHandler()
     }
 
