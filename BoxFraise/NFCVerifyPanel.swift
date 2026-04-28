@@ -11,88 +11,12 @@ struct NFCVerifyPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            FraiseBackButton { state.panel = .home }
-
-            Text("verify pickup")
-                .font(.system(size: 28, design: .serif))
-                .foregroundStyle(c.text)
+            FraiseBackButton { state.panel = .profile }
 
             if let result {
-                // Verified result
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    HStack {
-                        Circle()
-                            .fill(Color(hex: "4CAF50"))
-                            .frame(width: 10, height: 10)
-                        Text("verified")
-                            .font(.mono(11))
-                            .foregroundStyle(Color(hex: "4CAF50"))
-                            .tracking(1)
-                            .textCase(.uppercase)
-                    }
-
-                    if let name = result.varietyName {
-                        Text(name.lowercased())
-                            .font(.system(size: 22, design: .serif))
-                            .foregroundStyle(c.text)
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let q = result.quantity {
-                            resultRow("quantity", value: "\(q) boxes")
-                        }
-                        if let farm = result.farm {
-                            resultRow("farm", value: farm.lowercased())
-                        }
-                        if let date = result.harvestDate {
-                            resultRow("harvested", value: date)
-                        }
-                    }
-                    .padding(Spacing.md)
-                    .background(c.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
-
-                    Button {
-                        self.result = nil
-                        error = nil
-                    } label: {
-                        Text("scan another")
-                            .font(.mono(12))
-                            .foregroundStyle(c.muted)
-                    }
-                    .padding(.top, Spacing.sm)
-                }
+                verifiedView(result)
             } else {
-                // Scan prompt
-                VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("hold your phone near the NFC chip inside your box lid.")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                        .lineSpacing(4)
-
-                    if let error {
-                        Text(error)
-                            .font(.mono(11))
-                            .foregroundStyle(Color(hex: "C0392B"))
-                    }
-
-                    Button {
-                        startScan()
-                    } label: {
-                        HStack {
-                            if scanning { ProgressView().tint(.white) }
-                            Text(scanning ? "scanning…" : "scan box  →")
-                                .font(.mono(13, weight: .medium))
-                                .foregroundStyle(.white)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(c.text)
-                        .clipShape(Capsule())
-                    }
-                    .disabled(scanning)
-                }
+                scanView
             }
 
             Spacer()
@@ -101,19 +25,167 @@ struct NFCVerifyPanel: View {
         .padding(Spacing.md)
     }
 
-    private func resultRow(_ label: String, value: String) -> some View {
-        HStack {
+    // MARK: - Verified
+
+    private func verifiedView(_ result: NFCVerifyResult) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Badge
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "4CAF50").opacity(0.12))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "4CAF50"))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("verified")
+                        .font(.mono(11, weight: .medium))
+                        .foregroundStyle(Color(hex: "4CAF50"))
+                        .tracking(1.5)
+                        .textCase(.uppercase)
+                    Text("authentic box fraise product")
+                        .font(.mono(9))
+                        .foregroundStyle(c.muted)
+                        .tracking(0.3)
+                }
+            }
+
+            // Variety name
+            if let name = result.varietyName {
+                Text(name.lowercased())
+                    .font(.system(size: 32, design: .serif))
+                    .foregroundStyle(c.text)
+            }
+
+            // Details card
+            if result.quantity != nil || result.farm != nil || result.harvestDate != nil {
+                VStack(spacing: 0) {
+                    if let q = result.quantity {
+                        detailRow("quantity", value: "\(q) boxes", icon: "cube.box")
+                    }
+                    if let farm = result.farm {
+                        detailRow("farm", value: farm.lowercased(), icon: "leaf")
+                    }
+                    if let date = result.harvestDate {
+                        detailRow("harvested", value: date, icon: "calendar")
+                    }
+                }
+                .background(c.card)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+            }
+
+            // Scan another
+            Button {
+                self.result = nil
+                error = nil
+            } label: {
+                HStack {
+                    Text("scan another")
+                        .font(.mono(13))
+                        .foregroundStyle(c.muted)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11))
+                        .foregroundStyle(c.border)
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 14)
+                .background(c.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+            }
+        }
+    }
+
+    // MARK: - Scan prompt
+
+    private var scanView: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("verify pickup")
+                .font(.system(size: 28, design: .serif))
+                .foregroundStyle(c.text)
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("hold your phone near the NFC chip inside your box lid.")
+                    .font(.mono(13))
+                    .foregroundStyle(c.muted)
+                    .lineSpacing(4)
+
+                Text("the chip is embedded in the lid — no sticker needed.")
+                    .font(.mono(11))
+                    .foregroundStyle(c.border)
+                    .lineSpacing(3)
+            }
+
+            if let error {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(hex: "C0392B"))
+                    Text(error)
+                        .font(.mono(11))
+                        .foregroundStyle(Color(hex: "C0392B"))
+                }
+            }
+
+            Button { startScan() } label: {
+                HStack {
+                    if scanning {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "wave.3.right")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    Text(scanning ? "scanning…" : "scan box")
+                        .font(.mono(13, weight: .medium))
+                        .foregroundStyle(.white)
+                    if !scanning {
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 16)
+                .background(c.text)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .disabled(scanning)
+        }
+    }
+
+    // MARK: - Row helper
+
+    private func detailRow(_ label: String, value: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(c.muted)
+                .frame(width: 20)
             Text(label)
                 .font(.mono(10))
                 .foregroundStyle(c.muted)
                 .tracking(1)
                 .textCase(.uppercase)
-            Spacer()
+                .frame(width: 70, alignment: .leading)
             Text(value)
                 .font(.mono(13))
                 .foregroundStyle(c.text)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 13)
+        .overlay(alignment: .bottom) {
+            Rectangle().frame(height: 0.5).foregroundStyle(c.border)
         }
     }
+
+    // MARK: - NFC
 
     private func startScan() {
         guard NFCTagReaderSession.readingAvailable else {
@@ -125,9 +197,7 @@ struct NFCVerifyPanel: View {
         error = nil
 
         let d = NFCScanDelegate { token in
-            Task { @MainActor in
-                await verify(token: token)
-            }
+            Task { @MainActor in await verify(token: token) }
         } onError: { msg in
             Task { @MainActor in
                 scanning = false
@@ -172,7 +242,6 @@ final class NFCScanDelegate: NSObject, NFCTagReaderSessionDelegate {
 
     func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
         if let e = error as? NFCReaderError, e.code == .readerSessionInvalidationErrorUserCanceled {
-            // User cancelled — reset UI without showing an error
             Task { @MainActor in onError("") }
             return
         }
@@ -189,7 +258,6 @@ final class NFCScanDelegate: NSObject, NFCTagReaderSessionDelegate {
             }
             if case .miFare(let mifareTag) = tag {
                 let token = mifareTag.identifier.map { String(format: "%02x", $0) }.joined()
-                // Invalidate after backend verify completes, not here
                 self.onRead(token)
                 session.invalidate()
             } else {
