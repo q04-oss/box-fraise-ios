@@ -5,18 +5,23 @@ struct NFCVerifyPanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     @State private var scanning = false
-    @State private var result: NFCVerifyResult?
+    @State private var outcome: ScanOutcome?
     @State private var error: String?
     @State private var delegate: NFCScanDelegate?
+
+    enum ScanOutcome {
+        case firstVerify(NFCVerifyResult)
+        case reorder(NFCReorderResult)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             FraiseBackButton { state.panel = .profile }
 
-            if let result {
-                verifiedView(result)
-            } else {
-                scanView
+            switch outcome {
+            case .firstVerify(let r): verifiedView(r)
+            case .reorder(let r):     provenanceView(r)
+            case nil:                 scanView
             }
 
             Spacer()
@@ -25,76 +30,214 @@ struct NFCVerifyPanel: View {
         .padding(Spacing.md)
     }
 
-    // MARK: - Verified
+    // MARK: - First verify
 
-    private func verifiedView(_ result: NFCVerifyResult) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            // Badge
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "4CAF50").opacity(0.12))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "4CAF50"))
+    private func verifiedView(_ r: NFCVerifyResult) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+
+                // Hero badge
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(Color(hex: "4CAF50").opacity(0.12)).frame(width: 48, height: 48)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Color(hex: "4CAF50"))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("verified")
+                            .font(.mono(11, weight: .medium))
+                            .foregroundStyle(Color(hex: "4CAF50"))
+                            .tracking(1.5).textCase(.uppercase)
+                        Text("authentic box fraise")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
+                    }
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("verified")
-                        .font(.mono(11, weight: .medium))
-                        .foregroundStyle(Color(hex: "4CAF50"))
-                        .tracking(1.5)
-                        .textCase(.uppercase)
-                    Text("authentic box fraise product")
-                        .font(.mono(9))
-                        .foregroundStyle(c.muted)
-                        .tracking(0.3)
+
+                if let name = r.varietyName {
+                    Text(name.lowercased())
+                        .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
                 }
-            }
 
-            // Variety name
-            if let name = result.varietyName {
-                Text(name.lowercased())
-                    .font(.system(size: 32, design: .serif))
-                    .foregroundStyle(c.text)
-            }
+                // Time bank card
+                if let credits = r.creditsAddedDays {
+                    let milestone = r.streakMilestone ?? false
+                    VStack(spacing: 0) {
+                        bankRow("+\(credits) days", label: "earned", icon: "clock.badge.plus",
+                                accent: Color(hex: "4CAF50"))
+                        if let bank = r.bankDays {
+                            bankRow("\(bank) days", label: "in bank", icon: "clock")
+                        }
+                        if let lifetime = r.lifetimeDays {
+                            bankRow("\(lifetime) days", label: "lifetime", icon: "infinity")
+                        }
+                        if let streak = r.streakWeeks {
+                            bankRow("week \(streak)\(milestone ? " ★" : "")",
+                                    label: milestone ? "milestone" : "streak",
+                                    icon: milestone ? "star.fill" : "flame",
+                                    accent: milestone ? Color(hex: "F9A825") : nil)
+                        }
+                    }
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+                        milestone ? Color(hex: "F9A825").opacity(0.5) : c.border,
+                        lineWidth: milestone ? 1 : 0.5))
+                }
 
-            // Details card
-            if result.quantity != nil || result.farm != nil || result.harvestDate != nil {
+                // fraise.chat identity — first time
+                if let email = r.fraiseChatEmail {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("your fraise identity")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                        Text(email)
+                            .font(.mono(14)).foregroundStyle(c.text)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    .padding(Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
+                        Color(hex: "4CAF50").opacity(0.4), lineWidth: 0.5))
+                }
+
+                // Unlocked features
+                if let unlocked = r.unlocked, !unlocked.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("unlocked")
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                        ForEach(unlocked, id: \.self) { feature in
+                            HStack(spacing: 10) {
+                                Image(systemName: "lock.open.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color(hex: "4CAF50"))
+                                Text(feature.replacingOccurrences(of: "_", with: " ").lowercased())
+                                    .font(.mono(12)).foregroundStyle(c.text)
+                            }
+                        }
+                    }
+                    .padding(Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                }
+
+                // Provenance
+                if r.quantity != nil || r.farm != nil || r.harvestDate != nil {
+                    VStack(spacing: 0) {
+                        if let q = r.quantity    { detailRow("quantity",  value: "\(q) boxes", icon: "cube.box") }
+                        if let f = r.farm        { detailRow("farm",      value: f.lowercased(), icon: "leaf") }
+                        if let d = r.harvestDate { detailRow("harvested", value: d, icon: "calendar") }
+                    }
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                }
+
+                doneButton
+            }
+        }
+    }
+
+    // MARK: - Provenance (re-scan)
+
+    private func provenanceView(_ r: NFCReorderResult) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13)).foregroundStyle(c.muted)
+                    Text("already collected")
+                        .font(.mono(11)).foregroundStyle(c.muted).tracking(0.5)
+                }
+
+                if let name = r.varietyName {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(name.lowercased())
+                            .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
+                        if let count = r.orderCount {
+                            let suffix = ["st","nd","rd"][min(count-1, 2) < 3 && (count < 11 || count > 13)
+                                                          ? max(0, min(count-1, 2)) : 2]
+                            Text("your \(count)\(suffix) box")
+                                .font(.mono(11)).foregroundStyle(c.muted)
+                        }
+                    }
+                }
+
+                // Provenance card
                 VStack(spacing: 0) {
-                    if let q = result.quantity {
-                        detailRow("quantity", value: "\(q) boxes", icon: "cube.box")
-                    }
-                    if let farm = result.farm {
-                        detailRow("farm", value: farm.lowercased(), icon: "leaf")
-                    }
-                    if let date = result.harvestDate {
-                        detailRow("harvested", value: date, icon: "calendar")
+                    if let f = r.farm            { detailRow("farm",      value: f.lowercased(), icon: "leaf") }
+                    if let d = r.harvestDate     { detailRow("harvested", value: d, icon: "calendar") }
+                    if let b = r.batchDeliveryDate { detailRow("delivered", value: b, icon: "shippingbox") }
+                    if let n = r.batchNotes, !n.isEmpty {
+                        detailRow("notes", value: n.lowercased(), icon: "text.quote")
                     }
                 }
                 .background(c.card)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
-            }
 
-            // Scan another
-            Button {
-                self.result = nil
-                error = nil
-            } label: {
-                HStack {
-                    Text("scan another")
-                        .font(.mono(13))
-                        .foregroundStyle(c.muted)
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 11))
-                        .foregroundStyle(c.border)
+                // Collectif pickups
+                if let count = r.collectifPickupsToday, count > 0 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(count) collectif member\(count == 1 ? "" : "s") also picked up today")
+                            .font(.mono(11)).foregroundStyle(c.muted)
+                        if let names = r.collectifMemberNames, !names.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(names, id: \.self) { n in
+                                    Text(n)
+                                        .font(.mono(10)).foregroundStyle(c.text)
+                                        .padding(.horizontal, 8).padding(.vertical, 4)
+                                        .background(c.searchBg).clipShape(Capsule())
+                                }
+                            }
+                        }
+                    }
+                    .padding(Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, 14)
-                .background(c.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+
+                // Last variety
+                if let last = r.lastVariety, let name = last.name {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("last time").font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                        Text(name.lowercased()).font(.mono(13)).foregroundStyle(c.text)
+                        if let f = last.farm {
+                            Text(f.lowercased()).font(.mono(10)).foregroundStyle(c.muted)
+                        }
+                    }
+                    .padding(Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                }
+
+                // Next standing order
+                if let next = r.nextStandingOrder, let variety = next.varietyName {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("next order").font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
+                        HStack {
+                            Text(variety.lowercased()).font(.mono(13)).foregroundStyle(c.text)
+                            Spacer()
+                            if let days = next.daysUntil {
+                                Text("in \(days)d").font(.mono(11)).foregroundStyle(c.muted)
+                            }
+                        }
+                    }
+                    .padding(Spacing.md)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
+                }
+
+                doneButton
             }
         }
     }
@@ -104,29 +247,20 @@ struct NFCVerifyPanel: View {
     private var scanView: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("verify pickup")
-                .font(.system(size: 28, design: .serif))
-                .foregroundStyle(c.text)
+                .font(.system(size: 28, design: .serif)).foregroundStyle(c.text)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text("hold your phone near the NFC chip inside your box lid.")
-                    .font(.mono(13))
-                    .foregroundStyle(c.muted)
-                    .lineSpacing(4)
-
+                    .font(.mono(13)).foregroundStyle(c.muted).lineSpacing(4)
                 Text("the chip is embedded in the lid — no sticker needed.")
-                    .font(.mono(11))
-                    .foregroundStyle(c.border)
-                    .lineSpacing(3)
+                    .font(.mono(11)).foregroundStyle(c.border).lineSpacing(3)
             }
 
             if let error {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(hex: "C0392B"))
-                    Text(error)
-                        .font(.mono(11))
-                        .foregroundStyle(Color(hex: "C0392B"))
+                        .font(.system(size: 12)).foregroundStyle(Color(hex: "C0392B"))
+                    Text(error).font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
                 }
             }
 
@@ -136,22 +270,18 @@ struct NFCVerifyPanel: View {
                         ProgressView().tint(.white)
                     } else {
                         Image(systemName: "wave.3.right")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .font(.system(size: 14)).foregroundStyle(.white.opacity(0.8))
                     }
                     Text(scanning ? "scanning…" : "scan box")
-                        .font(.mono(13, weight: .medium))
-                        .foregroundStyle(.white)
+                        .font(.mono(13, weight: .medium)).foregroundStyle(.white)
                     if !scanning {
                         Spacer()
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.6))
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, 16)
+                .padding(.horizontal, Spacing.md).padding(.vertical, 16)
                 .background(c.text)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
@@ -159,29 +289,57 @@ struct NFCVerifyPanel: View {
         }
     }
 
-    // MARK: - Row helper
+    // MARK: - Row helpers
+
+    private func bankRow(_ value: String, label: String, icon: String, accent: Color? = nil) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(accent ?? c.muted)
+                .frame(width: 20)
+            Text(label)
+                .font(.mono(10)).foregroundStyle(c.muted).tracking(1).textCase(.uppercase)
+                .frame(width: 70, alignment: .leading)
+            Text(value)
+                .font(.mono(13))
+                .foregroundStyle(accent ?? c.text)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md).padding(.vertical, 13)
+        .overlay(alignment: .bottom) {
+            Rectangle().frame(height: 0.5).foregroundStyle(c.border)
+        }
+    }
 
     private func detailRow(_ label: String, value: String, icon: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13))
-                .foregroundStyle(c.muted)
-                .frame(width: 20)
+                .font(.system(size: 13)).foregroundStyle(c.muted).frame(width: 20)
             Text(label)
-                .font(.mono(10))
-                .foregroundStyle(c.muted)
-                .tracking(1)
-                .textCase(.uppercase)
+                .font(.mono(10)).foregroundStyle(c.muted).tracking(1).textCase(.uppercase)
                 .frame(width: 70, alignment: .leading)
-            Text(value)
-                .font(.mono(13))
-                .foregroundStyle(c.text)
+            Text(value).font(.mono(13)).foregroundStyle(c.text)
             Spacer()
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 13)
+        .padding(.horizontal, Spacing.md).padding(.vertical, 13)
         .overlay(alignment: .bottom) {
             Rectangle().frame(height: 0.5).foregroundStyle(c.border)
+        }
+    }
+
+    private var doneButton: some View {
+        Button { outcome = nil; error = nil } label: {
+            HStack {
+                Text("done").font(.mono(13, weight: .medium)).foregroundStyle(c.text)
+                Spacer()
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(c.muted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Spacing.md).padding(.vertical, 16)
+            .background(c.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
         }
     }
 
@@ -193,9 +351,7 @@ struct NFCVerifyPanel: View {
             return
         }
         Haptics.impact(.medium)
-        scanning = true
-        error = nil
-
+        scanning = true; error = nil
         let d = NFCScanDelegate { token in
             Task { @MainActor in await verify(token: token) }
         } onError: { msg in
@@ -219,11 +375,32 @@ struct NFCVerifyPanel: View {
         do {
             let r = try await APIClient.shared.verifyNFC(token: nfcToken, userToken: userToken)
             scanning = false
-            result = r
+            outcome = .firstVerify(r)
+            if let user = state.user {
+                state.user = BoxUser(id: user.id, displayName: user.displayName, verified: true)
+            }
+            Haptics.notification(.success)
+        } catch {
+            let msg = error.localizedDescription.lowercased()
+            if msg.contains("already") || msg.contains("used") || msg.contains("invalid") {
+                await tryReorder(token: nfcToken, userToken: userToken)
+            } else {
+                scanning = false
+                self.error = error.localizedDescription
+                Haptics.notification(.error)
+            }
+        }
+    }
+
+    @MainActor private func tryReorder(token nfcToken: String, userToken: String) async {
+        do {
+            let r = try await APIClient.shared.verifyNFCReorder(token: nfcToken, userToken: userToken)
+            scanning = false
+            outcome = .reorder(r)
             Haptics.notification(.success)
         } catch {
             scanning = false
-            self.error = error.localizedDescription
+            self.error = "this token could not be verified"
             Haptics.notification(.error)
         }
     }

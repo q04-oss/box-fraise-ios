@@ -175,6 +175,41 @@ struct NFCVerifyResult: Codable {
     let quantity: Int?
     let farm: String?
     let harvestDate: String?
+    // Social / time bank
+    let fraiseChatEmail: String?
+    let isDj: Bool?
+    let unlocked: [String]?
+    let tier: String?
+    let bankDays: Int?
+    let creditsAddedDays: Int?
+    let lifetimeDays: Int?
+    let streakWeeks: Int?
+    let streakMilestone: Bool?
+}
+
+struct NFCReorderResult: Codable {
+    let varietyName: String?
+    let farm: String?
+    let harvestDate: String?
+    let quantity: Int?
+    let orderCount: Int?
+    let collectifPickupsToday: Int?
+    let collectifMemberNames: [String]?
+    let batchDeliveryDate: String?
+    let batchNotes: String?
+    let lastVariety: NFCLastVariety?
+    let nextStandingOrder: NFCNextOrder?
+}
+
+struct NFCLastVariety: Codable {
+    let name: String?
+    let farm: String?
+    let harvestDate: String?
+}
+
+struct NFCNextOrder: Codable {
+    let varietyName: String?
+    let daysUntil: Int?
 }
 
 // MARK: - Walk-in

@@ -209,6 +209,10 @@ actor APIClient {
         try await request("/verify/nfc", method: "POST", body: ["nfc_token": nfcToken], token: userToken)
     }
 
+    func verifyNFCReorder(token nfcToken: String, userToken: String) async throws -> NFCReorderResult {
+        try await request("/verify/reorder", method: "POST", body: ["nfc_token": nfcToken], token: userToken)
+    }
+
     // MARK: - Staff
 
     func fetchStaffOrders(pin: String, token: String) async throws -> [StaffOrder] {
