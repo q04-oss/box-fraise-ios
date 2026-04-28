@@ -49,10 +49,34 @@ struct PartnerDetailPanel: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
                 }
 
-                Text("this business is not yet on box fraise.")
-                    .font(.mono(11))
-                    .foregroundStyle(c.muted)
-                    .padding(.top, Spacing.sm)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("this business is not yet on box fraise.")
+                        .font(.mono(11))
+                        .foregroundStyle(c.muted)
+
+                    if let email = URL(string: "mailto:hello@fraise.box?subject=Nominate%20\(business.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? business.name)&body=I%27d%20like%20to%20nominate%20this%20location%20for%20Box%20Fraise.") {
+                        Link(destination: email) {
+                            HStack {
+                                Image(systemName: "envelope")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(c.muted)
+                                Text("nominate this location")
+                                    .font(.mono(12))
+                                    .foregroundStyle(c.text)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(c.border)
+                            }
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, 13)
+                            .background(c.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+                        }
+                    }
+                }
+                .padding(.top, Spacing.sm)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)

@@ -1,11 +1,14 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 struct ContentView: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
-    @State private var selectedDetent: PresentationDetent = .fraction(0.55)
+    @State private var selectedDetent: PresentationDetent = .fraction(0.12)
     @State private var tappedBusiness: Business?
+    @State private var locationManager = FraiseLocationManager()
+    @State private var didCentreOnUser = false
     @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 53.5461, longitude: -113.4938),
         span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
@@ -80,7 +83,33 @@ struct ContentView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
                 ))
             }
-            selectedDetent = .fraction(0.55)
+            selectedDetent = .fraction(0.5)
+        }
+        .onChange(of: locationManager.coordinate) { _, coord in
+            guard let coord else { return }
+            state.userLocation = coord
+            // Centre on user only once on first fix, unless a location is already selected
+            if !didCentreOnUser && state.activeLocation == nil {
+                didCentreOnUser = true
+                withAnimation {
+                    cameraPosition = .region(MKCoordinateRegion(
+                        center: coord,
+                        span: MKCoordinateSpan(latitudeDelta: 0.06, longitudeDelta: 0.06)
+                    ))
+                }
+            }
+        }
+        .onChange(of: state.businesses) { _, businesses in
+            // Once businesses load, if we still have no user location centre on nearest
+            guard !businesses.isEmpty, !didCentreOnUser, state.userLocation == nil,
+                  let nearest = state.nearestCollection, let coord = nearest.coordinate else { return }
+            didCentreOnUser = true
+            withAnimation {
+                cameraPosition = .region(MKCoordinateRegion(
+                    center: coord,
+                    span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+                ))
+            }
         }
         .onChange(of: state.pendingScreen) { _, screen in
             guard let screen else { return }
@@ -233,6 +262,34 @@ struct SheetContent: View {
         case .nfcVerify:           NFCVerifyPanel()
         case .walkIn:              WalkInPanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
+        }
+    }
+}
+
+// MARK: - Location Manager
+
+@Observable
+final class FraiseLocationManager: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    var coordinate: CLLocationCoordinate2D?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let loc = locations.last else { return }
+        coordinate = loc.coordinate
+        manager.stopUpdatingLocation() // one-shot — we only need initial position
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if manager.authorizationStatus == .authorizedWhenInUse {
+            manager.startUpdatingLocation()
         }
     }
 }

@@ -36,10 +36,21 @@ struct BoxFraiseApp: App {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
+                // Offline banner
+                .overlay(alignment: .top) {
+                    if appState.isOffline {
+                        OfflineBanner()
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
                 .onAppear {
                     appDelegate.appState = appState
                     STPAPIClient.shared.publishableKey = Config.stripePublishableKey
                     AppSecurity.enforce()
+                    appState.startNetworkMonitor()
+                }
+                .onOpenURL { url in
+                    handleDeepLink(url)
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
@@ -54,6 +65,57 @@ struct BoxFraiseApp: App {
                 }
                 .task { await appState.bootstrap() }
         }
+    }
+}
+
+// MARK: - Deep link handler (extension on BoxFraiseApp)
+
+extension BoxFraiseApp {
+    @MainActor func handleDeepLink(_ url: URL) {
+        let path = url.path.lowercased()
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let query = components?.queryItems
+
+        switch path {
+        case "/order":
+            if let slug = query?.first(where: { $0.name == "location" })?.value,
+               let biz = appState.approvedBusinesses.first(where: { $0.slug == slug }) {
+                appState.selectLocation(biz)
+            } else {
+                appState.panel = .order
+            }
+        case "/popups", "/popup":
+            appState.panel = .popups
+        case "/profile":
+            appState.panel = appState.isSignedIn ? .profile : .auth
+        case "/verify":
+            appState.panel = .nfcVerify
+        case "/history":
+            appState.panel = appState.isSignedIn ? .orderHistory : .auth
+        default:
+            break
+        }
+    }
+}
+
+// MARK: - Offline banner
+
+struct OfflineBanner: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 11))
+                .foregroundStyle(.white)
+            Text("no connection — some features unavailable")
+                .font(.mono(11))
+                .foregroundStyle(.white)
+                .tracking(0.2)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 10)
+        .background(Color(hex: "1C1C1E"))
+        .fraiseTheme()
     }
 }
 

@@ -104,6 +104,40 @@ enum Haptics {
 
 // MARK: - Shared UI components
 
+// MARK: - Skeleton
+
+struct FraiseSkeletonRow: View {
+    @State private var shimmer = false
+    let wide: Bool
+
+    init(wide: Bool = false) { self.wide = wide }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(shimmer ? 0.12 : 0.07))
+                    .frame(width: wide ? 160 : 120, height: 13)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(shimmer ? 0.08 : 0.04))
+                    .frame(width: 80, height: 10)
+            }
+            Spacer()
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.gray.opacity(shimmer ? 0.1 : 0.06))
+                .frame(width: 44, height: 13)
+        }
+        .padding(Spacing.md)
+        .background(Color.gray.opacity(shimmer ? 0.04 : 0.02))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+        }
+    }
+}
+
 struct FraiseEmptyState: View {
     @Environment(\.fraiseColors) private var c
     let icon: String

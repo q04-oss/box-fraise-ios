@@ -45,6 +45,7 @@ struct PopupsPanel: View {
             .padding(Spacing.md)
         }
         .task { await state.refresh() }
+        .refreshable { await state.refresh() }
     }
 }
 

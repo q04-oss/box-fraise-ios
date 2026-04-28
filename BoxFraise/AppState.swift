@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Observation
+import Network
 
 @MainActor
 @Observable
@@ -38,6 +39,10 @@ final class AppState {
     // Re-auth
     var needsReauth: Bool = false
 
+    // Network
+    var isOffline: Bool = false
+    private var networkMonitor: NWPathMonitor?
+
     // Computed
     var isSignedIn: Bool { user != nil }
     var approvedBusinesses: [Business] { businesses.filter { $0.isApproved && $0.coordinate != nil } }
@@ -58,6 +63,19 @@ final class AppState {
 
     // Cache keys
     private static let userCacheKey = "cached_box_user"
+
+    // MARK: - Network monitor
+
+    func startNetworkMonitor() {
+        let monitor = NWPathMonitor()
+        networkMonitor = monitor
+        monitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                self?.isOffline = path.status != .satisfied
+            }
+        }
+        monitor.start(queue: .global(qos: .utility))
+    }
 
     // MARK: - Bootstrap
 

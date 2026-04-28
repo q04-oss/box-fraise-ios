@@ -11,9 +11,23 @@ struct AuthPanel: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             FraiseBackButton { state.panel = .home }
 
-            Text("sign in to box fraise")
-                .font(.system(size: 22, design: .serif))
-                .foregroundStyle(c.text)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("box fraise")
+                    .font(.system(size: 28, design: .serif))
+                    .foregroundStyle(c.text)
+
+                Text("curated strawberry boxes from local farms, available at partner locations across the city.")
+                    .font(.mono(12))
+                    .foregroundStyle(c.muted)
+                    .lineSpacing(4)
+            }
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            Text("sign in to order, join popups, and verify your pickup.")
+                .font(.mono(11))
+                .foregroundStyle(c.muted)
+                .lineSpacing(3)
 
             if let error {
                 Text(error)

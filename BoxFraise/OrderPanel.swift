@@ -105,7 +105,12 @@ struct OrderPanel: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             FraiseSectionLabel(text: "strawberry")
             if state.varieties.isEmpty {
-                ProgressView().tint(c.muted).padding(.top, 8)
+                VStack(spacing: 8) {
+                    FraiseSkeletonRow(wide: true)
+                    FraiseSkeletonRow()
+                    FraiseSkeletonRow(wide: true)
+                }
+                .padding(.top, 4)
             } else {
                 ForEach(state.varieties) { v in
                     selectionRow(

@@ -54,6 +54,7 @@ struct OrderHistoryPanel: View {
                     }
                 }
                 .listStyle(.plain)
+                .refreshable { await load() }
             }
         }
         .task { await load() }

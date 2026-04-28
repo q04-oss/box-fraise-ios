@@ -52,15 +52,13 @@ struct WalkInPanel: View {
                         // Inventory list
                         if !state.walkInInventory.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                FraiseSectionLabel("variety")
+                                FraiseSectionLabel(text: "variety")
                                 ForEach(state.walkInInventory) { item in
-                                    Button {
-                                        selectedItem = item
-                                    } label: {
+                                    Button { selectedItem = item } label: {
                                         HStack {
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(item.name)
-                                                    .font(.mono(13))
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(item.name.lowercased())
+                                                    .font(.mono(14))
                                                     .foregroundStyle(c.text)
                                                 if let stock = item.stockRemaining {
                                                     Text("\(stock) remaining")
@@ -70,25 +68,68 @@ struct WalkInPanel: View {
                                             }
                                             Spacer()
                                             Text(item.priceFormatted)
-                                                .font(.mono(12))
+                                                .font(.mono(13))
                                                 .foregroundStyle(c.muted)
-                                            Circle()
-                                                .strokeBorder(selectedItem?.id == item.id ? c.text : c.border,
-                                                              lineWidth: selectedItem?.id == item.id ? 5 : 1)
-                                                .frame(width: 18, height: 18)
+                                            ZStack {
+                                                Circle().fill(selectedItem?.id == item.id ? c.text : Color.clear).frame(width: 20, height: 20)
+                                                Circle().strokeBorder(selectedItem?.id == item.id ? c.text : c.border, lineWidth: 1.5).frame(width: 20, height: 20)
+                                                if selectedItem?.id == item.id {
+                                                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                                }
+                                            }
                                         }
                                         .padding(Spacing.md)
                                         .background(selectedItem?.id == item.id ? c.card : Color.clear)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(c.border, lineWidth: 0.5))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selectedItem?.id == item.id ? c.border : c.border.opacity(0.5), lineWidth: 0.5))
                                     }
                                 }
                             }
                         }
 
-                        // Chocolate + finish
-                        pickerRow("chocolate", options: CHOCOLATES, selected: $chocolate)
-                        pickerRow("finish",    options: FINISHES,    selected: $finish)
+                        // Chocolate
+                        VStack(alignment: .leading, spacing: 8) {
+                            FraiseSectionLabel(text: "chocolate")
+                            ForEach(CHOCOLATES, id: \.id) { opt in
+                                Button { chocolate = opt.id } label: {
+                                    HStack {
+                                        Text(opt.name.lowercased()).font(.mono(14)).foregroundStyle(c.text)
+                                        Spacer()
+                                        ZStack {
+                                            Circle().fill(chocolate == opt.id ? c.text : Color.clear).frame(width: 20, height: 20)
+                                            Circle().strokeBorder(chocolate == opt.id ? c.text : c.border, lineWidth: 1.5).frame(width: 20, height: 20)
+                                            if chocolate == opt.id { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white) }
+                                        }
+                                    }
+                                    .padding(Spacing.md)
+                                    .background(chocolate == opt.id ? c.card : Color.clear)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border.opacity(0.5), lineWidth: 0.5))
+                                }
+                            }
+                        }
+
+                        // Finish
+                        VStack(alignment: .leading, spacing: 8) {
+                            FraiseSectionLabel(text: "finish")
+                            ForEach(FINISHES, id: \.id) { opt in
+                                Button { finish = opt.id } label: {
+                                    HStack {
+                                        Text(opt.name.lowercased()).font(.mono(14)).foregroundStyle(c.text)
+                                        Spacer()
+                                        ZStack {
+                                            Circle().fill(finish == opt.id ? c.text : Color.clear).frame(width: 20, height: 20)
+                                            Circle().strokeBorder(finish == opt.id ? c.text : c.border, lineWidth: 1.5).frame(width: 20, height: 20)
+                                            if finish == opt.id { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white) }
+                                        }
+                                    }
+                                    .padding(Spacing.md)
+                                    .background(finish == opt.id ? c.card : Color.clear)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border.opacity(0.5), lineWidth: 0.5))
+                                }
+                            }
+                        }
 
                         // Customer email
                         VStack(alignment: .leading, spacing: 6) {
@@ -175,26 +216,6 @@ struct WalkInPanel: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)
-    }
-
-    private func pickerRow(_ label: String, options: [(id: String, name: String)], selected: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FraiseSectionLabel(label)
-            HStack(spacing: 8) {
-                ForEach(options, id: \.id) { opt in
-                    Button {
-                        selected.wrappedValue = opt.id
-                    } label: {
-                        Text(opt.name)
-                            .font(.mono(11))
-                            .foregroundStyle(selected.wrappedValue == opt.id ? c.background : c.muted)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(selected.wrappedValue == opt.id ? c.text : c.searchBg)
-                            .clipShape(Capsule())
-                    }
-                }
-            }
-        }
     }
 
     @MainActor private func prepare() async {
