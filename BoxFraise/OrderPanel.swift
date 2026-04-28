@@ -12,6 +12,7 @@ struct OrderPanel: View {
     @State private var highlightedVarietyId: Int?
     @State private var highlightedChocolate: String?
     @State private var highlightedFinish: String?
+    @State private var pendingOrderId: Int?
 
     private var order: OrderState { state.orderState }
 
@@ -351,6 +352,40 @@ struct OrderPanel: View {
             Text("you'll receive a notification when your box is ready.")
                 .font(.mono(12)).foregroundStyle(c.muted).lineSpacing(4)
 
+            if let confirmed = state.confirmedOrder,
+               let queued = confirmed.queuedBoxes,
+               let minQ = confirmed.minQuantity, minQ > 0 {
+                let pct = min(1.0, Double(queued) / Double(minQ))
+                let remaining = max(0, minQ - queued)
+                VStack(alignment: .leading, spacing: 8) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(c.searchBg).frame(height: 4)
+                            Capsule()
+                                .fill(pct >= 1.0 ? Color(hex: "4CAF50") : c.text)
+                                .frame(width: geo.size.width * pct, height: 4)
+                                .animation(.spring(response: 0.6), value: pct)
+                        }
+                    }
+                    .frame(height: 4)
+                    if remaining > 0 {
+                        Text("\(remaining) more order\(remaining == 1 ? "" : "s") until this batch ships")
+                            .font(.mono(10)).foregroundStyle(c.muted)
+                    } else {
+                        HStack(spacing: 5) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 11)).foregroundStyle(Color(hex: "4CAF50"))
+                            Text("threshold met — delivery confirmed")
+                                .font(.mono(10)).foregroundStyle(Color(hex: "4CAF50"))
+                        }
+                    }
+                }
+                .padding(Spacing.md)
+                .background(c.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+            }
+
             Spacer(minLength: 24)
 
             Button {
@@ -437,6 +472,7 @@ struct OrderPanel: View {
             var config = PaymentSheet.Configuration()
             config.merchantDisplayName = "Box Fraise"
             config.applePay = .init(merchantId: "merchant.com.boxfraise.app", merchantCountryCode: "CA")
+            pendingOrderId = response.id
             paymentSheet = PaymentSheet(paymentIntentClientSecret: response.clientSecret, configuration: config)
         } catch {
             self.error = error.localizedDescription
@@ -454,13 +490,28 @@ struct OrderPanel: View {
         case .completed:
             Haptics.notification(.success)
             goingForward = true
-            state.confirmedOrder = ConfirmedOrder(id: 0, status: "confirmed", varietyName: order.varietyName)
+            let orderId = pendingOrderId ?? 0
+            let varietyName = order.varietyName
+            let locationName = state.activeLocation?.name ?? ""
+            state.confirmedOrder = ConfirmedOrder(
+                id: orderId, status: "paid", varietyName: varietyName,
+                queuedBoxes: nil, minQuantity: nil, deliveryDate: nil
+            )
             if #available(iOS 16.2, *) {
-                startOrderLiveActivity(
-                    orderId: 0,
-                    varietyName: order.varietyName ?? "order",
-                    locationName: state.activeLocation?.name ?? ""
-                )
+                startOrderLiveActivity(orderId: orderId, varietyName: varietyName ?? "order", locationName: locationName)
+            }
+            if orderId > 0, let token = Keychain.userToken {
+                Task { @MainActor in
+                    if let confirmed = try? await APIClient.shared.confirmOrder(orderId: orderId, token: token) {
+                        state.confirmedOrder = ConfirmedOrder(
+                            id: confirmed.id, status: confirmed.status,
+                            varietyName: confirmed.varietyName ?? varietyName,
+                            queuedBoxes: confirmed.queuedBoxes,
+                            minQuantity: confirmed.minQuantity,
+                            deliveryDate: confirmed.deliveryDate
+                        )
+                    }
+                }
             }
         }
     }

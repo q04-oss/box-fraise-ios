@@ -36,6 +36,9 @@ final class AppState {
     // User location
     var userLocation: CLLocationCoordinate2D? = nil
 
+    // Social
+    var socialAccess: UserSocialAccess? = nil
+
     // Re-auth
     var needsReauth: Bool = false
 
@@ -183,6 +186,14 @@ final class AppState {
         if let v = try? await APIClient.shared.fetchVarieties() {
             varieties = v.filter { $0.active ?? true }
         }
+    }
+
+    func refreshUser() async {
+        guard let token = Keychain.userToken else { return }
+        async let me     = try? await APIClient.shared.fetchMe(token: token)
+        async let social = try? await APIClient.shared.fetchSocialAccess(token: token)
+        if let u = await me     { user = u; persist(user: u) }
+        if let s = await social { socialAccess = s }
     }
 
     // MARK: - Push

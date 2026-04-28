@@ -47,6 +47,10 @@ struct BoxUser: Codable {
     let id: Int
     let displayName: String?
     let verified: Bool?
+    let isShop: Bool?
+    let fraiseChatEmail: String?
+    let currentStreakWeeks: Int?
+    let socialTier: String?
 }
 
 // MARK: - Popup
@@ -110,6 +114,36 @@ struct ConfirmedOrder: Codable {
     let id: Int
     let status: String
     let varietyName: String?
+    let queuedBoxes: Int?
+    let minQuantity: Int?
+    let deliveryDate: String?
+}
+
+struct UserSocialAccess: Codable {
+    let active: Bool?
+    let tier: String?
+    let bankDays: Int?
+    let lifetimeDays: Int?
+}
+
+struct OrderReceipt: Codable {
+    let id: Int
+    let varietyName: String?
+    let locationName: String?
+    let createdAt: String?
+    let nfcToken: String?
+    let worker: ReceiptWorker?
+    let seasonPatron: ReceiptPatron?
+}
+
+struct ReceiptWorker: Codable {
+    let id: Int
+    let displayName: String?
+}
+
+struct ReceiptPatron: Codable {
+    let displayName: String?
+    let userId: Int?
 }
 
 let CHOCOLATES: [(id: String, name: String)] = [

@@ -185,9 +185,16 @@ actor APIClient {
         ], token: token)
     }
 
-    func confirmOrder(orderId: Int, paymentIntentId: String, token: String) async throws -> ConfirmedOrder {
-        try await request("/orders/\(orderId)/confirm", method: "POST",
-            body: ["payment_intent_id": paymentIntentId], token: token)
+    func confirmOrder(orderId: Int, token: String) async throws -> ConfirmedOrder {
+        try await request("/orders/\(orderId)/confirm", method: "POST", body: [:], token: token)
+    }
+
+    func fetchSocialAccess(token: String) async throws -> UserSocialAccess {
+        try await request("/users/me/social-access", token: token)
+    }
+
+    func fetchOrderReceipt(orderId: Int, token: String) async throws -> OrderReceipt {
+        try await request("/orders/\(orderId)/receipt", token: token)
     }
 
     func payWithBalance(orderId: Int, token: String) async throws -> ConfirmedOrder {

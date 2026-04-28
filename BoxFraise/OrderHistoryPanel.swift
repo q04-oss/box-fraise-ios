@@ -84,6 +84,9 @@ struct OrderHistoryCard: View {
     let order: PastOrder
     @State private var displayRating: Int?
     @State private var ratingDone = false
+    @State private var receipt: OrderReceipt?
+    @State private var receiptLoading = false
+    @State private var receiptExpanded = false
 
     private var statusColor: Color {
         switch order.status {
@@ -141,6 +144,20 @@ struct OrderHistoryCard: View {
             if order.isCollected {
                 Divider().foregroundStyle(c.border).opacity(0.6)
                 starRow
+                Divider().foregroundStyle(c.border).opacity(0.6)
+                receiptToggle
+                if receiptExpanded {
+                    if let r = receipt {
+                        receiptView(r)
+                    } else if receiptLoading {
+                        HStack {
+                            ProgressView().tint(c.muted).scaleEffect(0.7)
+                            Text("loading receipt…")
+                                .font(.mono(10)).foregroundStyle(c.muted)
+                        }
+                        .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+                    }
+                }
             }
         }
         .background(c.card)
@@ -173,5 +190,51 @@ struct OrderHistoryCard: View {
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 12)
+    }
+
+    private var receiptToggle: some View {
+        Button {
+            receiptExpanded.toggle()
+            if receiptExpanded && receipt == nil && !receiptLoading {
+                Task { await loadReceipt() }
+            }
+        } label: {
+            HStack {
+                Text(receiptLoading ? "—" : "receipt")
+                    .font(.mono(10)).foregroundStyle(c.muted)
+                Spacer()
+                Image(systemName: receiptExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 10)).foregroundStyle(c.muted)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+        }
+    }
+
+    private func receiptView(_ r: OrderReceipt) -> some View {
+        VStack(spacing: 0) {
+            if let loc = r.locationName   { receiptRow("location",    value: loc.lowercased()) }
+            if let w = r.worker?.displayName { receiptRow("prepared by", value: w.lowercased()) }
+            if let p = r.seasonPatron?.displayName { receiptRow("patron", value: p.lowercased()) }
+            if let t = r.nfcToken         { receiptRow("token",       value: String(t.prefix(8)) + "…") }
+        }
+        .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.sm)
+    }
+
+    private func receiptRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.mono(9)).foregroundStyle(c.muted).tracking(1).textCase(.uppercase)
+                .frame(width: 80, alignment: .leading)
+            Text(value).font(.mono(11)).foregroundStyle(c.text)
+            Spacer()
+        }
+        .padding(.vertical, 6)
+    }
+
+    @MainActor private func loadReceipt() async {
+        guard let token = Keychain.userToken else { return }
+        receiptLoading = true
+        receipt = try? await APIClient.shared.fetchOrderReceipt(orderId: order.id, token: token)
+        receiptLoading = false
     }
 }
