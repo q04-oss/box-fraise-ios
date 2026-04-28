@@ -192,22 +192,49 @@ struct SheetContent: View {
     @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
 
+    // String ID used to drive identity-based transitions
+    private var panelID: String {
+        switch state.panel {
+        case .home:                return "home"
+        case .auth:                return "auth"
+        case .profile:             return "profile"
+        case .popups:              return "popups"
+        case .order:               return "order"
+        case .orderHistory:        return "orderHistory"
+        case .staff:               return "staff"
+        case .nfcVerify:           return "nfcVerify"
+        case .walkIn:              return "walkIn"
+        case .partnerDetail(let b): return "partnerDetail-\(b.id)"
+        }
+    }
+
     var body: some View {
         ZStack {
             c.background.ignoresSafeArea()
-            switch state.panel {
-            case .home:                HomePanel()
-            case .auth:                AuthPanel()
-            case .profile:             ProfilePanel()
-            case .popups:              PopupsPanel()
-            case .order:               OrderPanel()
-            case .orderHistory:        OrderHistoryPanel()
-            case .staff:               StaffPanel()
-            case .nfcVerify:           NFCVerifyPanel()
-            case .walkIn:              WalkInPanel()
-            case .partnerDetail(let b): PartnerDetailPanel(business: b)
-            }
+            panelView
+                .id(panelID)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: 18)),
+                    removal:   .opacity.combined(with: .offset(y: -6))
+                ))
+                .animation(.spring(response: 0.28, dampingFraction: 0.88), value: panelID)
         }
         .fraiseTheme()
+    }
+
+    @ViewBuilder
+    private var panelView: some View {
+        switch state.panel {
+        case .home:                HomePanel()
+        case .auth:                AuthPanel()
+        case .profile:             ProfilePanel()
+        case .popups:              PopupsPanel()
+        case .order:               OrderPanel()
+        case .orderHistory:        OrderHistoryPanel()
+        case .staff:               StaffPanel()
+        case .nfcVerify:           NFCVerifyPanel()
+        case .walkIn:              WalkInPanel()
+        case .partnerDetail(let b): PartnerDetailPanel(business: b)
+        }
     }
 }
