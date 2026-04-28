@@ -1,115 +1,187 @@
 import Foundation
+import CoreLocation
 import Observation
 
+@MainActor
 @Observable
 final class AppState {
-    var member: FraiseMember?            = nil
-    var invitations: [FraiseInvitation]  = []
-    var pushToken: String?               = nil
-    var pendingScreen: String?           = nil
+    // Auth
+    var user: BoxUser?           = nil
+    var pendingScreen: String?   = nil
 
-    // MARK: - Computed
+    // Map data
+    var businesses: [Business]   = []
+    var popups: [FraisePopup]    = []
+    var varieties: [Variety]     = []
 
-    var isSignedIn: Bool { member != nil }
-    var hasCredit: Bool  { (member?.creditBalance ?? 0) > 0 }
+    // Navigation
+    var panel: Panel             = .home
+    var activeLocation: Business? = nil
 
-    var pendingInvitations: [FraiseInvitation] { invitations.filter { $0.isPending } }
-    var activeInvitations:  [FraiseInvitation] { invitations.filter { $0.isActive  } }
+    // Ordering
+    var orderState: OrderState   = OrderState()
+    var confirmedOrder: ConfirmedOrder? = nil
 
-    // MARK: - Cache keys
+    // Order history
+    var orderHistory: [PastOrder] = []
 
-    private static let memberCacheKey      = "cached_member"
-    private static let invitationsCacheKey = "cached_invitations"
+    // Staff
+    var staffPin: String          = ""
+    var staffOrders: [StaffOrder] = []
+
+    // Walk-in
+    var walkInInventory: [WalkInItem] = []
+
+    // User location
+    var userLocation: CLLocationCoordinate2D? = nil
+
+    // Re-auth
+    var needsReauth: Bool = false
+
+    // Computed
+    var isSignedIn: Bool { user != nil }
+    var approvedBusinesses: [Business] { businesses.filter { $0.isApproved && $0.coordinate != nil } }
+    var unapprovedBusinesses: [Business] { businesses.filter { !$0.isApproved && $0.coordinate != nil } }
+
+    var nearestCollection: Business? {
+        guard let userLoc = userLocation else {
+            return approvedBusinesses.first(where: { $0.isCollection })
+        }
+        return approvedBusinesses
+            .filter { $0.isCollection }
+            .min(by: { a, b in
+                let dA = CLLocation(latitude: a.lat!, longitude: a.lng!).distance(from: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude))
+                let dB = CLLocation(latitude: b.lat!, longitude: b.lng!).distance(from: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude))
+                return dA < dB
+            })
+    }
+
+    // Cache keys
+    private static let userCacheKey = "cached_box_user"
 
     // MARK: - Bootstrap
 
     func bootstrap() async {
-        // Show cached data immediately so the UI is never blank on cold launch
         loadCache()
+        async let biz  = try? await APIClient.shared.fetchBusinesses()
+        async let pops = try? await APIClient.shared.fetchPopups()
+        async let vars = try? await APIClient.shared.fetchVarieties()
 
-        guard let token = Keychain.memberToken else { return }
-        async let me   = try? await APIClient.shared.fetchMe(token: token)
-        async let invs = try? await APIClient.shared.fetchInvitations(token: token)
-        if let m = await me {
-            member = m
-            persist(member: m)
+        if let b = await biz  { businesses = b }
+        if let p = await pops { popups = p }
+        if let v = await vars { varieties = v.filter { $0.active ?? true } }
+
+        guard let token = Keychain.userToken else { return }
+        if let me = try? await APIClient.shared.fetchMe(token: token) {
+            user = me
+            persist(user: me)
         }
-        let fetched = await invs ?? []
-        invitations = fetched
-        persist(invitations: fetched)
     }
 
     // MARK: - Auth
 
-    func signIn(member: FraiseMember) async {
-        guard let token = member.token else { return }
-        Keychain.memberToken = token
-        self.member = member
-        persist(member: member)
-        let fetched = (try? await APIClient.shared.fetchInvitations(token: token)) ?? []
-        invitations = fetched
-        persist(invitations: fetched)
+    func signIn(response: AuthResponse) async {
+        Keychain.userToken = response.token
+        let me = BoxUser(id: response.userId, displayName: response.displayName, verified: response.verified)
+        user = me
+        persist(user: me)
+        panel = .home
         if let pt = pushToken {
-            try? await APIClient.shared.updatePushToken(pt, token: token)
+            try? await APIClient.shared.updatePushToken(pt, token: response.token)
         }
+        await AppAttest.shared.ensureAttestation(userToken: response.token)
     }
 
     func signOut() {
-        Keychain.memberToken = nil
-        member = nil
-        invitations = []
-        UserDefaults.standard.removeObject(forKey: Self.memberCacheKey)
-        UserDefaults.standard.removeObject(forKey: Self.invitationsCacheKey)
+        Keychain.userToken = nil
+        user = nil
+        UserDefaults.standard.removeObject(forKey: Self.userCacheKey)
+        panel = .home
     }
 
-    // MARK: - Refresh
+    /// Call when any API call returns 401 — clears session and prompts re-auth.
+    func handleUnauthorized() {
+        signOut()
+        needsReauth = true
+        panel = .auth
+    }
 
-    func refreshMe() async {
-        guard let token = Keychain.memberToken else { return }
-        if let m = try? await APIClient.shared.fetchMe(token: token) {
-            member = m
-            persist(member: m)
+    func refresh() async {
+        async let biz  = try? await APIClient.shared.fetchBusinesses()
+        async let pops = try? await APIClient.shared.fetchPopups()
+        if let b = await biz  { businesses = b }
+        if let p = await pops { popups = p }
+        writeWidgetData()
+    }
+
+    // Write shared data for the home screen widget via App Group
+    func writeWidgetData() {
+        guard let nearest = nearestCollection,
+              let defaults = UserDefaults(suiteName: "group.com.boxfraise.app") else { return }
+        defaults.set(nearest.name, forKey: "widget_location_name")
+        defaults.set(nearest.displayCity, forKey: "widget_location_city")
+        defaults.set(popups.filter { $0.isOpen }.count, forKey: "widget_popup_count")
+    }
+
+    /// Central API error handler — call from any panel catch block.
+    func handle(_ error: Error) {
+        if case APIError.unauthorized = error {
+            handleUnauthorized()
         }
     }
 
-    func refreshInvitations() async {
-        guard let token = Keychain.memberToken else { return }
-        let fetched = (try? await APIClient.shared.fetchInvitations(token: token)) ?? []
-        invitations = fetched
-        persist(invitations: fetched)
+    func selectLocation(_ biz: Business) {
+        guard biz.isApproved else { return }
+        activeLocation = biz
+        orderState.reset()
+        confirmedOrder = nil
+        panel = biz.isCollection ? .order : .home
+        Task { await loadVarieties() }
     }
 
-    // MARK: - Push token
+    func clearLocation() {
+        activeLocation = nil
+        orderState.reset()
+        confirmedOrder = nil
+        panel = .home
+    }
+
+    /// Called when the app backgrounds — clears payment/order state from memory.
+    func clearSensitiveState() {
+        orderState.reset()
+        confirmedOrder = nil
+        staffPin = ""
+        staffOrders = []
+    }
+
+    func loadVarieties() async {
+        if let v = try? await APIClient.shared.fetchVarieties() {
+            varieties = v.filter { $0.active ?? true }
+        }
+    }
+
+    // MARK: - Push
+
+    var pushToken: String?
 
     func registerPushToken(_ token: String) async {
         pushToken = token
-        guard let sessionToken = Keychain.memberToken else { return }
+        guard let sessionToken = Keychain.userToken else { return }
         try? await APIClient.shared.updatePushToken(token, token: sessionToken)
     }
 
-    // MARK: - Cache helpers
+    // MARK: - Cache
 
     private func loadCache() {
-        let decoder = JSONDecoder()
-        if let data = UserDefaults.standard.data(forKey: Self.memberCacheKey),
-           let m = try? decoder.decode(FraiseMember.self, from: data) {
-            member = m
-        }
-        if let data = UserDefaults.standard.data(forKey: Self.invitationsCacheKey),
-           let invs = try? decoder.decode([FraiseInvitation].self, from: data) {
-            invitations = invs
+        if let data = UserDefaults.standard.data(forKey: Self.userCacheKey),
+           let u = try? JSONDecoder().decode(BoxUser.self, from: data) {
+            user = u
         }
     }
 
-    private func persist(member: FraiseMember) {
-        if let data = try? JSONEncoder().encode(member) {
-            UserDefaults.standard.set(data, forKey: Self.memberCacheKey)
-        }
-    }
-
-    private func persist(invitations: [FraiseInvitation]) {
-        if let data = try? JSONEncoder().encode(invitations) {
-            UserDefaults.standard.set(data, forKey: Self.invitationsCacheKey)
+    private func persist(user: BoxUser) {
+        if let data = try? JSONEncoder().encode(user) {
+            UserDefaults.standard.set(data, forKey: Self.userCacheKey)
         }
     }
 }

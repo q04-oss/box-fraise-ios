@@ -8,6 +8,26 @@
 
 /* Begin PBXBuildFile section */
 		B001000000000001 /* BoxFraiseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000001 /* BoxFraiseApp.swift */; };
+		B001000000000002 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000005 /* APIClient.swift */; };
+		B001000000000003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000006 /* AppState.swift */; };
+		B001000000000004 /* AuthPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000007 /* AuthPanel.swift */; };
+		B001000000000005 /* BusinessCallout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000008 /* BusinessCallout.swift */; };
+		B001000000000006 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000009 /* ContentView.swift */; };
+		B001000000000007 /* HomePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000A /* HomePanel.swift */; };
+		B001000000000008 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000B /* Keychain.swift */; };
+		B001000000000009 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000C /* Models.swift */; };
+		B00100000000000A /* NFCVerifyPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000D /* NFCVerifyPanel.swift */; };
+		B00100000000000B /* OrderHistoryPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000E /* OrderHistoryPanel.swift */; };
+		B00100000000000C /* OrderPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000000F /* OrderPanel.swift */; };
+		B00100000000000D /* PartnerDetailPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000013 /* PartnerDetailPanel.swift */; };
+		B00100000000000E /* PopupsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000014 /* PopupsPanel.swift */; };
+		B00100000000000F /* ProfilePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000015 /* ProfilePanel.swift */; };
+		B001000000000013 /* Security.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000016 /* Security.swift */; };
+		B001000000000014 /* StaffPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000017 /* StaffPanel.swift */; };
+		B001000000000015 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000018 /* Theme.swift */; };
+		B001000000000016 /* WalkInPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000019 /* WalkInPanel.swift */; };
+		B001000000000017 /* Messaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001A /* Messaging.swift */; };
+		B001000000000018 /* AppAttest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001B /* AppAttest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -15,6 +35,26 @@
 		A001000000000002 /* BoxFraise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoxFraise.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A001000000000003 /* BoxFraise.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BoxFraise.entitlements; sourceTree = "<group>"; };
 		A001000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A001000000000005 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A001000000000006 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A001000000000007 /* AuthPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthPanel.swift; sourceTree = "<group>"; };
+		A001000000000008 /* BusinessCallout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessCallout.swift; sourceTree = "<group>"; };
+		A001000000000009 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A00100000000000A /* HomePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePanel.swift; sourceTree = "<group>"; };
+		A00100000000000B /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		A00100000000000C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A00100000000000D /* NFCVerifyPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCVerifyPanel.swift; sourceTree = "<group>"; };
+		A00100000000000E /* OrderHistoryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderHistoryPanel.swift; sourceTree = "<group>"; };
+		A00100000000000F /* OrderPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderPanel.swift; sourceTree = "<group>"; };
+		A001000000000013 /* PartnerDetailPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerDetailPanel.swift; sourceTree = "<group>"; };
+		A001000000000014 /* PopupsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupsPanel.swift; sourceTree = "<group>"; };
+		A001000000000015 /* ProfilePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePanel.swift; sourceTree = "<group>"; };
+		A001000000000016 /* Security.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Security.swift; sourceTree = "<group>"; };
+		A001000000000017 /* StaffPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffPanel.swift; sourceTree = "<group>"; };
+		A001000000000018 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A001000000000019 /* WalkInPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkInPanel.swift; sourceTree = "<group>"; };
+		A00100000000001A /* Messaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messaging.swift; sourceTree = "<group>"; };
+		A00100000000001B /* AppAttest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAttest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -22,6 +62,26 @@
 			isa = PBXGroup;
 			children = (
 				A001000000000001 /* BoxFraiseApp.swift */,
+				A001000000000005 /* APIClient.swift */,
+				A001000000000006 /* AppState.swift */,
+				A001000000000007 /* AuthPanel.swift */,
+				A001000000000008 /* BusinessCallout.swift */,
+				A001000000000009 /* ContentView.swift */,
+				A00100000000000A /* HomePanel.swift */,
+				A00100000000000B /* Keychain.swift */,
+				A00100000000000C /* Models.swift */,
+				A00100000000000D /* NFCVerifyPanel.swift */,
+				A00100000000000E /* OrderHistoryPanel.swift */,
+				A00100000000000F /* OrderPanel.swift */,
+				A001000000000013 /* PartnerDetailPanel.swift */,
+				A001000000000014 /* PopupsPanel.swift */,
+				A001000000000015 /* ProfilePanel.swift */,
+				A001000000000016 /* Security.swift */,
+				A001000000000017 /* StaffPanel.swift */,
+				A001000000000018 /* Theme.swift */,
+				A001000000000019 /* WalkInPanel.swift */,
+				A00100000000001A /* Messaging.swift */,
+				A00100000000001B /* AppAttest.swift */,
 				A001000000000003 /* BoxFraise.entitlements */,
 				A001000000000004 /* Info.plist */,
 			);
@@ -101,6 +161,26 @@
 			buildActionMask = 2147483647;
 			files = (
 				B001000000000001 /* BoxFraiseApp.swift in Sources */,
+				B001000000000002 /* APIClient.swift in Sources */,
+				B001000000000003 /* AppState.swift in Sources */,
+				B001000000000004 /* AuthPanel.swift in Sources */,
+				B001000000000005 /* BusinessCallout.swift in Sources */,
+				B001000000000006 /* ContentView.swift in Sources */,
+				B001000000000007 /* HomePanel.swift in Sources */,
+				B001000000000008 /* Keychain.swift in Sources */,
+				B001000000000009 /* Models.swift in Sources */,
+				B00100000000000A /* NFCVerifyPanel.swift in Sources */,
+				B00100000000000B /* OrderHistoryPanel.swift in Sources */,
+				B00100000000000C /* OrderPanel.swift in Sources */,
+				B00100000000000D /* PartnerDetailPanel.swift in Sources */,
+				B00100000000000E /* PopupsPanel.swift in Sources */,
+				B00100000000000F /* ProfilePanel.swift in Sources */,
+				B001000000000013 /* Security.swift in Sources */,
+				B001000000000014 /* StaffPanel.swift in Sources */,
+				B001000000000015 /* Theme.swift in Sources */,
+				B001000000000016 /* WalkInPanel.swift in Sources */,
+				B001000000000017 /* Messaging.swift in Sources */,
+				B001000000000018 /* AppAttest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

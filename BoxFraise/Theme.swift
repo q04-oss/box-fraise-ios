@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Color palette
 
@@ -84,5 +85,75 @@ struct FraiseThemeModifier: ViewModifier {
 extension View {
     func fraiseTheme() -> some View {
         modifier(FraiseThemeModifier())
+    }
+}
+
+// MARK: - Haptics
+
+enum Haptics {
+    static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
+    }
+    static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        UINotificationFeedbackGenerator().notificationOccurred(type)
+    }
+    static func selection() {
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+}
+
+// MARK: - Shared UI components
+
+struct FraiseEmptyState: View {
+    @Environment(\.fraiseColors) private var c
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 28))
+                .foregroundStyle(c.border)
+            Text(title)
+                .font(.system(.subheadline, design: .serif))
+                .foregroundStyle(c.muted)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.mono(11))
+                    .foregroundStyle(c.border)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .padding(.horizontal, Spacing.lg)
+    }
+}
+
+struct FraiseBackButton: View {
+    @Environment(\.fraiseColors) private var c
+    let label: String
+    let action: () -> Void
+    init(_ label: String = "← back", action: @escaping () -> Void) {
+        self.label = label; self.action = action
+    }
+    var body: some View {
+        Button(action: action) {
+            Text(label).font(.mono(12)).foregroundStyle(c.muted)
+        }
+    }
+}
+
+struct FraiseSectionLabel: View {
+    @Environment(\.fraiseColors) private var c
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.mono(9))
+            .foregroundStyle(c.muted)
+            .tracking(1.5)
+            .textCase(.uppercase)
     }
 }

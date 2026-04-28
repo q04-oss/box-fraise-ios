@@ -1,85 +1,238 @@
 import SwiftUI
-
-private struct TabBarHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
+import MapKit
 
 struct ContentView: View {
-    @Environment(AppState.self) var appState
-    @Environment(\.fraiseColors) var c
-    @State private var tab: Tab = .hold
-    @State private var tabBarHeight: CGFloat = 0
-
-    enum Tab { case hold, invited }
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @State private var selectedDetent: PresentationDetent = .fraction(0.55)
+    @State private var tappedBusiness: Business?
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 53.5461, longitude: -113.4938),
+        span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+    ))
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Both tabs stay in memory — opacity switch avoids reload on tab change
-            Group {
-                HoldTab()    .opacity(tab == .hold    ? 1 : 0)
-                InvitationsTab().opacity(tab == .invited ? 1 : 0)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: tabBarHeight) }
+        ZStack {
+            Map(position: $cameraPosition) {
+                UserAnnotation()
 
-            tabBar
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: TabBarHeightKey.self, value: geo.size.height)
+                ForEach(state.approvedBusinesses) { biz in
+                    if let coord = biz.coordinate {
+                        Annotation("", coordinate: coord) {
+                            BusinessPin(approved: true, isCollection: biz.isCollection)
+                                .onTapGesture { handlePinTap(biz) }
+                        }
                     }
-                )
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .background(c.background)
-        .onPreferenceChange(TabBarHeightKey.self) { tabBarHeight = $0 }
-        .onChange(of: appState.pendingScreen) { _, screen in
-            guard let screen else { return }
-            tab = (screen == "my-claims") ? .invited : .hold
-            appState.pendingScreen = nil
-        }
-    }
+                }
 
-    // MARK: - Custom tab bar
-
-    private var tabBar: some View {
-        VStack(spacing: 0) {
-            Rectangle().frame(height: 0.5).foregroundStyle(c.border)
-            HStack {
-                tabButton("hold", .hold)
-                Spacer()
-                invitedButton
-            }
-            .padding(.horizontal, Spacing.xl)
-            .padding(.top, 14)
-            .padding(.bottom, 34)
-        }
-        .background(c.background)
-    }
-
-    private func tabButton(_ label: String, _ t: Tab) -> some View {
-        Button(label) { tab = t }
-            .font(.mono(11))
-            .foregroundStyle(tab == t ? c.text : c.muted)
-            .tracking(1.5)
-    }
-
-    private var invitedButton: some View {
-        let count = appState.pendingInvitations.count
-        return Button { tab = .invited } label: {
-            HStack(spacing: 6) {
-                Text("invited")
-                    .font(.mono(11))
-                    .foregroundStyle(tab == .invited ? c.text : c.muted)
-                    .tracking(1.5)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.mono(9))
-                        .foregroundStyle(c.background)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(c.text).clipShape(Capsule())
+                ForEach(state.unapprovedBusinesses) { biz in
+                    if let coord = biz.coordinate {
+                        Annotation("", coordinate: coord) {
+                            BusinessPin(approved: false, isCollection: biz.isCollection)
+                        }
+                    }
                 }
             }
+            .mapStyle(.standard(
+                elevation: .flat,
+                emphasis: .muted,
+                pointsOfInterest: .excludingAll,
+                showsTraffic: false
+            ))
+            .mapControlVisibility(.hidden)
+            .ignoresSafeArea()
+        }
+        // Business callout card
+        .overlay(alignment: .bottom) {
+            if let biz = tappedBusiness {
+                BusinessCallout(business: biz) {
+                    Haptics.impact(.medium)
+                    tappedBusiness = nil
+                    animateToLocation(biz)
+                    state.selectLocation(biz)
+                    selectedDetent = .fraction(0.5)
+                } onDismiss: {
+                    tappedBusiness = nil
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, UIScreen.main.bounds.height * 0.57)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(response: 0.35), value: tappedBusiness != nil)
+            }
+        }
+        .sheet(isPresented: .constant(true)) {
+            SheetContent()
+                .presentationDetents(
+                    [.fraction(0.12), .fraction(0.5), .large],
+                    selection: $selectedDetent
+                )
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(.regularMaterial)
+                .presentationBackgroundInteraction(.enabled(upThrough: .large))
+                .interactiveDismissDisabled()
+                .presentationCornerRadius(24)
+        }
+        .onChange(of: state.activeLocation) { _, loc in
+            guard let loc, let coord = loc.coordinate else { return }
+            withAnimation {
+                cameraPosition = .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: coord.latitude - 0.003, longitude: coord.longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                ))
+            }
+            selectedDetent = .fraction(0.55)
+        }
+        .onChange(of: state.pendingScreen) { _, screen in
+            guard let screen else { return }
+            switch screen {
+            case "order-history": state.panel = .orderHistory
+            case "popups":        state.panel = .popups
+            case "profile":       state.panel = state.isSignedIn ? .profile : .auth
+            case "verify":        state.panel = .nfcVerify
+            default:              state.panel = .home
+            }
+            state.pendingScreen = nil
+            selectedDetent = .fraction(0.55)
+        }
+    }
+
+    private func handlePinTap(_ biz: Business) {
+        Haptics.impact(.light)
+        if biz.isApproved {
+            tappedBusiness = biz
+        } else {
+            state.panel = .partnerDetail(biz)
+            selectedDetent = .fraction(0.5)
+        }
+    }
+
+    private func animateToLocation(_ biz: Business) {
+        guard let coord = biz.coordinate else { return }
+        withAnimation {
+            cameraPosition = .region(MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: coord.latitude - 0.003, longitude: coord.longitude),
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))
+        }
+    }
+}
+
+// MARK: - Business Pin
+
+struct BusinessPin: View {
+    @Environment(\.fraiseColors) private var c
+    let approved: Bool
+    let isCollection: Bool
+
+    var body: some View {
+        if approved && isCollection {
+            Teardrop()
+                .fill(c.text)
+                .frame(width: 22, height: 28)
+                .overlay {
+                    Circle()
+                        .fill(c.background)
+                        .frame(width: 7, height: 7)
+                        .offset(y: -3)
+                }
+                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+        } else if approved {
+            Teardrop()
+                .stroke(c.text, lineWidth: 1.5)
+                .background(Teardrop().fill(c.background))
+                .frame(width: 16, height: 20)
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+        } else {
+            Teardrop()
+                .stroke(c.muted.opacity(0.4), lineWidth: 1)
+                .background(Teardrop().fill(c.background.opacity(0.7)))
+                .frame(width: 13, height: 17)
+        }
+    }
+}
+
+struct Teardrop: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width, h = rect.height
+        let cx = w / 2
+        // Circle radius occupies top ~70% of height
+        let r = w * 0.46
+        let cy = r + 1
+        // Start at tip (bottom centre)
+        path.move(to: CGPoint(x: cx, y: h))
+        // Left side tangent up to circle
+        path.addQuadCurve(
+            to: CGPoint(x: cx - r, y: cy),
+            control: CGPoint(x: cx - r * 0.8, y: h * 0.7)
+        )
+        // Top arc (circle)
+        path.addArc(
+            center: CGPoint(x: cx, y: cy),
+            radius: r,
+            startAngle: .degrees(180),
+            endAngle: .degrees(0),
+            clockwise: false
+        )
+        // Right side tangent down to tip
+        path.addQuadCurve(
+            to: CGPoint(x: cx, y: h),
+            control: CGPoint(x: cx + r * 0.8, y: h * 0.7)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+// MARK: - Sheet content router
+
+struct SheetContent: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+
+    // String ID used to drive identity-based transitions
+    private var panelID: String {
+        switch state.panel {
+        case .home:                return "home"
+        case .auth:                return "auth"
+        case .profile:             return "profile"
+        case .popups:              return "popups"
+        case .order:               return "order"
+        case .orderHistory:        return "orderHistory"
+        case .staff:               return "staff"
+        case .nfcVerify:           return "nfcVerify"
+        case .walkIn:              return "walkIn"
+        case .partnerDetail(let b): return "partnerDetail-\(b.id)"
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            c.background.ignoresSafeArea()
+            panelView
+                .id(panelID)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: 18)),
+                    removal:   .opacity.combined(with: .offset(y: -6))
+                ))
+                .animation(.spring(response: 0.28, dampingFraction: 0.88), value: panelID)
+        }
+        .fraiseTheme()
+    }
+
+    @ViewBuilder
+    private var panelView: some View {
+        switch state.panel {
+        case .home:                HomePanel()
+        case .auth:                AuthPanel()
+        case .profile:             ProfilePanel()
+        case .popups:              PopupsPanel()
+        case .order:               OrderPanel()
+        case .orderHistory:        OrderHistoryPanel()
+        case .staff:               StaffPanel()
+        case .nfcVerify:           NFCVerifyPanel()
+        case .walkIn:              WalkInPanel()
+        case .partnerDetail(let b): PartnerDetailPanel(business: b)
         }
     }
 }
