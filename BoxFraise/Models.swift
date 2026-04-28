@@ -1,6 +1,13 @@
 import Foundation
 import CoreLocation
 
+// MARK: - Price formatting
+
+private protocol PricedItem { var priceCents: Int { get } }
+private extension PricedItem {
+    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
+}
+
 // MARK: - Business
 
 struct Business: Codable, Identifiable {
@@ -44,7 +51,7 @@ struct BoxUser: Codable {
 
 // MARK: - Popup
 
-struct FraisePopup: Codable, Identifiable {
+struct FraisePopup: Codable, Identifiable, PricedItem {
     let id: Int
     let title: String
     let description: String?
@@ -61,19 +68,16 @@ struct FraisePopup: Codable, Identifiable {
     var isConfirmed: Bool    { status == "confirmed" }
     var isThresholdMet: Bool { status == "threshold_met" }
     var thresholdPct: Double { minSeats > 0 ? min(1.0, Double(seatsClaimed) / Double(minSeats)) : 0 }
-    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 // MARK: - Ordering
 
-struct Variety: Codable, Identifiable {
+struct Variety: Codable, Identifiable, PricedItem {
     let id: Int
     let name: String
     let description: String?
     let priceCents: Int
     let active: Bool?
-
-    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 struct OrderState {
@@ -175,26 +179,11 @@ struct NFCVerifyResult: Codable {
 
 // MARK: - Walk-in
 
-struct WalkInToken: Codable {
-    let id: Int
-    let token: String
-    let locationName: String
-    let varietyName: String
-    let priceCents: Int
-    let stockRemaining: Int
-    let claimed: Bool
-    let allowsWalkin: Bool
-
-    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
-}
-
-struct WalkInItem: Codable, Identifiable {
+struct WalkInItem: Codable, Identifiable, PricedItem {
     let id: Int
     let name: String
     let priceCents: Int
     let stockRemaining: Int?
-
-    var priceFormatted: String { String(format: "CA$%.2f", Double(priceCents) / 100.0) }
 }
 
 // MARK: - Panel

@@ -90,7 +90,7 @@ struct OrderPanel: View {
 
     private var chocolateStep: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            backButton { state.orderState.varietyId = nil }
+            FraiseBackButton { state.orderState.varietyId = nil }
             FraiseSectionLabel("chocolate")
             ForEach(CHOCOLATES, id: \.id) { choc in
                 selectionRow(
@@ -111,7 +111,7 @@ struct OrderPanel: View {
 
     private var finishStep: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            backButton { state.orderState.chocolate = nil }
+            FraiseBackButton { state.orderState.chocolate = nil }
             FraiseSectionLabel("finish")
             ForEach(FINISHES, id: \.id) { fin in
                 selectionRow(
@@ -132,7 +132,7 @@ struct OrderPanel: View {
 
     private var reviewStep: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            backButton { state.orderState.finish = nil }
+            FraiseBackButton { state.orderState.finish = nil }
             FraiseSectionLabel("review")
 
             VStack(spacing: 0) {
@@ -252,14 +252,6 @@ struct OrderPanel: View {
     }
 
     // MARK: - Helpers
-
-    private func backButton(action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text("← back")
-                .font(.mono(12))
-                .foregroundStyle(c.muted)
-        }
-    }
 
     private func selectionRow(title: String, subtitle: String, trailing: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
