@@ -7,57 +7,85 @@ struct BusinessCallout: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Header ────────────────────────────────────────────────────────
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(business.name.lowercased())
-                        .font(.system(size: 16, design: .serif))
+                        .font(.system(size: 20, design: .serif))
                         .foregroundStyle(c.text)
 
-                    if let neighbourhood = business.neighbourhood ?? business.displayCity.isEmpty ? nil : business.displayCity {
-                        Text(neighbourhood.lowercased())
+                    if let place = business.neighbourhood ?? (business.displayCity.isEmpty ? nil : business.displayCity) {
+                        Text(place.lowercased())
                             .font(.mono(11))
                             .foregroundStyle(c.muted)
-                    }
-
-                    if let hours = business.hours {
-                        Text(hours)
-                            .font(.mono(10))
-                            .foregroundStyle(c.muted)
-                            .lineLimit(1)
+                            .tracking(0.3)
                     }
                 }
+
                 Spacer()
+
                 Button(action: onDismiss) {
-                    Text("×")
-                        .font(.mono(18))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(c.muted)
+                        .frame(width: 28, height: 28)
+                        .background(c.searchBg)
+                        .clipShape(Circle())
                 }
             }
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.md)
+            .padding(.bottom, Spacing.sm)
 
-            if let desc = business.description {
-                Text(desc)
-                    .font(.mono(12))
-                    .foregroundStyle(c.muted)
-                    .lineLimit(2)
+            // ── Meta row ──────────────────────────────────────────────────────
+            if business.hours != nil || business.description != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let hours = business.hours {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10))
+                                .foregroundStyle(c.muted)
+                            Text(hours.lowercased())
+                                .font(.mono(11))
+                                .foregroundStyle(c.muted)
+                                .lineLimit(1)
+                        }
+                    }
+                    if let desc = business.description {
+                        Text(desc.lowercased())
+                            .font(.mono(12))
+                            .foregroundStyle(c.muted)
+                            .lineSpacing(3)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, Spacing.sm)
             }
 
-            HStack(spacing: 10) {
-                Button(action: onSelect) {
-                    Text(business.isCollection ? "order →" : "view →")
-                        .font(.mono(12, weight: .medium))
+            // ── CTA ───────────────────────────────────────────────────────────
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            Button(action: onSelect) {
+                HStack {
+                    Text(business.isCollection ? "order" : "view")
+                        .font(.mono(13, weight: .medium))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(c.text)
-                        .clipShape(Capsule())
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
                 }
-                Spacer()
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 14)
+                .background(c.text)
             }
         }
-        .padding(Spacing.md)
-        .background(c.background)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(c.border, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(c.border.opacity(0.4), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.18), radius: 24, y: 6)
     }
 }
