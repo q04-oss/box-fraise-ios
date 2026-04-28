@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct HomePanel: View {
     @Environment(AppState.self) private var state
@@ -131,7 +132,14 @@ struct HomePanel: View {
                         }
                         .padding(.top, 2)
 
-                        if let nearest = state.nearestCollection {
+                        if state.businesses.isEmpty {
+                            VStack(spacing: 10) {
+                                FraiseSkeletonRow(wide: true)
+                                FraiseSkeletonRow()
+                                FraiseSkeletonRow(wide: true)
+                            }
+                            .padding(.top, 12)
+                        } else if let nearest = state.nearestCollection {
                             NearestCard(business: nearest) {
                                 state.selectLocation(nearest)
                             }
@@ -232,9 +240,19 @@ struct HomePanel: View {
 // MARK: - Nearest Collection Card
 
 private struct NearestCard: View {
+    @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     let business: Business
     let action: () -> Void
+
+    private var distanceLabel: String? {
+        guard let userLoc = state.userLocation, let coord = business.coordinate else { return nil }
+        let metres = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
+            .distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
+        return metres < 1000
+            ? "\(Int(metres.rounded())) m"
+            : String(format: "%.1f km", metres / 1000)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -243,8 +261,14 @@ private struct NearestCard: View {
                     .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
                 Text(business.name.lowercased())
                     .font(.system(size: 18, design: .serif)).foregroundStyle(c.text)
-                if let sub = business.neighbourhood ?? business.city {
-                    Text(sub.lowercased()).font(.mono(11)).foregroundStyle(c.muted)
+                HStack(spacing: 6) {
+                    if let sub = business.neighbourhood ?? business.city {
+                        Text(sub.lowercased()).font(.mono(11)).foregroundStyle(c.muted)
+                    }
+                    if let dist = distanceLabel {
+                        Text("·").font(.mono(11)).foregroundStyle(c.border)
+                        Text(dist).font(.mono(11)).foregroundStyle(c.muted)
+                    }
                 }
             }
             .padding(Spacing.md)

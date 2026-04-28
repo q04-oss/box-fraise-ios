@@ -263,7 +263,21 @@ struct OrderPanel: View {
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
 
             if let error {
-                Text(error).font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                HStack(spacing: 8) {
+                    Text(error)
+                        .font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button {
+                        self.error = nil
+                        Task { await preparePayment() }
+                    } label: {
+                        Text("retry")
+                            .font(.mono(10)).foregroundStyle(c.muted)
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(c.searchBg).clipShape(Capsule())
+                    }
+                }
             }
 
             // Total + pay

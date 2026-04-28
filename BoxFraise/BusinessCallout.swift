@@ -1,10 +1,21 @@
 import SwiftUI
+import CoreLocation
 
 struct BusinessCallout: View {
+    @Environment(AppState.self) private var state
     @Environment(\.fraiseColors) private var c
     let business: Business
     let onSelect: () -> Void
     let onDismiss: () -> Void
+
+    private var distanceLabel: String? {
+        guard let userLoc = state.userLocation, let coord = business.coordinate else { return nil }
+        let metres = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
+            .distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
+        return metres < 1000
+            ? "\(Int(metres.rounded())) m"
+            : String(format: "%.1f km", metres / 1000)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -16,11 +27,15 @@ struct BusinessCallout: View {
                         .font(.system(size: 20, design: .serif))
                         .foregroundStyle(c.text)
 
-                    if let place = business.neighbourhood ?? (business.displayCity.isEmpty ? nil : business.displayCity) {
-                        Text(place.lowercased())
-                            .font(.mono(11))
-                            .foregroundStyle(c.muted)
-                            .tracking(0.3)
+                    HStack(spacing: 6) {
+                        if let place = business.neighbourhood ?? (business.displayCity.isEmpty ? nil : business.displayCity) {
+                            Text(place.lowercased())
+                                .font(.mono(11)).foregroundStyle(c.muted).tracking(0.3)
+                        }
+                        if let dist = distanceLabel {
+                            Text("·").font(.mono(11)).foregroundStyle(c.border)
+                            Text(dist).font(.mono(11)).foregroundStyle(c.muted)
+                        }
                     }
                 }
 

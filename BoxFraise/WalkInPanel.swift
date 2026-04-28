@@ -37,7 +37,7 @@ struct WalkInPanel: View {
                     VStack(alignment: .leading, spacing: Spacing.lg) {
                         // NFC token
                         VStack(alignment: .leading, spacing: 6) {
-                            FraiseSectionLabel("box token")
+                            FraiseSectionLabel(text: "box token")
                             TextField("scan or enter token", text: $nfcToken)
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
@@ -133,7 +133,7 @@ struct WalkInPanel: View {
 
                         // Customer email
                         VStack(alignment: .leading, spacing: 6) {
-                            FraiseSectionLabel("customer email")
+                            FraiseSectionLabel(text: "customer email")
                             TextField("optional", text: $customerEmail)
                                 .font(.mono(14))
                                 .foregroundStyle(c.text)
@@ -192,27 +192,48 @@ struct WalkInPanel: View {
     }
 
     private var confirmedView: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("sold")
-                .font(.system(size: 28, design: .serif))
-                .foregroundStyle(c.text)
-            if let item = selectedItem {
-                Text(item.name.lowercased())
-                    .font(.mono(13))
-                    .foregroundStyle(c.muted)
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            ZStack {
+                Circle().fill(c.text).frame(width: 52, height: 52)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(c.background)
             }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("sold")
+                    .font(.system(size: 28, design: .serif))
+                    .foregroundStyle(c.text)
+                if let item = selectedItem {
+                    Text(item.name.lowercased())
+                        .font(.mono(13)).foregroundStyle(c.muted)
+                }
+                Text([chocolate, finish]
+                    .map { $0.replacingOccurrences(of: "_", with: " ") }
+                    .joined(separator: " · ").lowercased())
+                    .font(.mono(11)).foregroundStyle(c.muted)
+            }
+
+            Spacer(minLength: 24)
+
             Button {
                 confirmed = false
-                nfcToken = ""
-                selectedItem = nil
-                customerEmail = ""
-                paymentSheet = nil
+                nfcToken = ""; selectedItem = nil
+                customerEmail = ""; paymentSheet = nil; error = nil
             } label: {
-                Text("next customer")
-                    .font(.mono(13))
-                    .foregroundStyle(c.muted)
+                HStack {
+                    Text("next customer")
+                        .font(.mono(13, weight: .medium)).foregroundStyle(c.text)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(c.muted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Spacing.md).padding(.vertical, 16)
+                .background(c.card)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(c.border, lineWidth: 0.5))
             }
-            .padding(.top, Spacing.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)

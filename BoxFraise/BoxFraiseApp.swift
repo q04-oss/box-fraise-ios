@@ -192,6 +192,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let info = notification.request.content.userInfo
+        let orderId = (info["order_id"] as? Int) ?? Int(info["order_id"] as? String ?? "")
+        let status  = info["status"] as? String
+        if let orderId, let status {
+            Task { @MainActor in
+                if #available(iOS 16.2, *) {
+                    updateOrderLiveActivity(orderId: orderId, status: status)
+                }
+                await appState?.refresh()
+            }
+        }
         completionHandler([.banner, .sound, .badge])
     }
 }

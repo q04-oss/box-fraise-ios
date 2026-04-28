@@ -198,6 +198,11 @@ actor APIClient {
         try await request("/users/me/orders", token: token)
     }
 
+    func rateOrder(id: Int, rating: Int, token: String) async throws {
+        let _: OKResponse = try await request("/orders/\(id)/rate", method: "POST",
+            body: ["rating": rating], token: token)
+    }
+
     // MARK: - NFC
 
     func verifyNFC(token nfcToken: String, userToken: String) async throws -> NFCVerifyResult {
