@@ -146,7 +146,7 @@ struct ReauthBanner: View {
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 10)
-        .background(Color(hex: "C0392B"))
+        .background(Color.fraiseRed)
         .fraiseTheme()
     }
 }

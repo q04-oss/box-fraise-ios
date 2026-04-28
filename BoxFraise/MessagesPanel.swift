@@ -48,10 +48,12 @@ struct MessagesPanel: View {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 14)).foregroundStyle(c.muted)
                     }
+                    .contentShape(Rectangle())
                     Button { showStatusEditor = true } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 13)).foregroundStyle(c.muted)
                     }
+                    .contentShape(Rectangle())
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
@@ -59,7 +61,7 @@ struct MessagesPanel: View {
             // Status line
             if let status = state.user?.status, !status.isEmpty {
                 HStack(spacing: 6) {
-                    Circle().fill(Color(hex: "4CAF50")).frame(width: 7, height: 7)
+                    Circle().fill(Color.fraiseGreen).frame(width: 7, height: 7)
                     Text(status.lowercased())
                         .font(.mono(11)).foregroundStyle(c.muted)
                     Spacer()
@@ -117,15 +119,19 @@ struct MessagesPanel: View {
         .sheet(item: $selectedMemory) { mr in
             MemoryPromptSheet(request: mr) { await loadOffers() }
                 .environment(state).fraiseTheme()
+                .presentationDragIndicator(.visible)
+                .interactiveDismissDisabled()
         }
         .sheet(item: $selectedDateInvitation) { inv in
             DateInvitationSheet(invitation: inv) { await loadOffers() }
                 .environment(state).fraiseTheme()
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedThread) { thread in
             ThreadView(thread: thread)
                 .environment(state)
                 .fraiseTheme()
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showCompose) {
             ComposeSheet(existing: threads) { thread in
@@ -133,6 +139,7 @@ struct MessagesPanel: View {
             }
             .environment(state)
             .fraiseTheme()
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showStatusEditor) {
             StatusEditorSheet(current: state.user?.status ?? "") { newStatus in
@@ -145,6 +152,7 @@ struct MessagesPanel: View {
             .environment(state)
             .fraiseTheme()
             .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .task { await load() }
     }
@@ -225,7 +233,7 @@ private struct ThreadRow: View {
                     HStack(spacing: 4) {
                         if isUndelivered {
                             Text("!")
-                                .font(.mono(11, weight: .bold)).foregroundStyle(Color(hex: "C0392B"))
+                                .font(.mono(11, weight: .bold)).foregroundStyle(Color.fraiseRed)
                         }
                         Text(preview)
                             .font(.mono(11)).foregroundStyle(c.muted)
@@ -281,7 +289,7 @@ extension MessagesPanel {
 
     private func sectionHeader(_ label: String) -> some View {
         Text(label)
-            .font(.mono(9)).foregroundStyle(c.muted).tracking(1)
+            .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5)
             .textCase(.uppercase)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Spacing.sm)
@@ -325,13 +333,13 @@ extension MessagesPanel {
                             Text("CA$\(inv.feeCents / 100) to open")
                                 .font(.mono(8)).foregroundStyle(c.background)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                                .background(Color.fraiseGreen).clipShape(Capsule())
                         }
                         if inv.isMatched {
                             Text("matched")
-                                .font(.mono(8)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.mono(8)).foregroundStyle(Color.fraiseGreen)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Color(hex: "4CAF50").opacity(0.12)).clipShape(Capsule())
+                                .background(Color.fraiseGreen.opacity(0.12)).clipShape(Capsule())
                         }
                     }
                     Text(inv.title.lowercased())
@@ -372,7 +380,7 @@ extension MessagesPanel {
                     Text("earn CA$\(promo.feeCents / 100)")
                         .font(.mono(8)).foregroundStyle(c.background)
                         .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                        .background(Color.fraiseGreen).clipShape(Capsule())
                 }
             }
             if expandedPromotion == promo.id {
@@ -393,7 +401,7 @@ extension MessagesPanel {
                     }
                 } label: {
                     Text(promo.isUnread ? "read and earn CA$\(promo.feeCents / 100)" : "read more")
-                        .font(.mono(10)).foregroundStyle(promo.isUnread ? Color(hex: "4CAF50") : c.muted)
+                        .font(.mono(10)).foregroundStyle(promo.isUnread ? Color.fraiseGreen : c.muted)
                 }
             }
         }
@@ -510,9 +518,9 @@ private struct DateInvitationSheet: View {
                     if earned || !invitation.isUnopened {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.system(size: 12)).foregroundStyle(Color.fraiseGreen)
                             Text("CA$\(invitation.feeCents / 100) added to your account")
-                                .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.mono(11)).foregroundStyle(Color.fraiseGreen)
                         }
                         .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm)
                     }
@@ -562,9 +570,9 @@ private struct DateInvitationSheet: View {
             } else if invitation.isMatched {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color(hex: "4CAF50"))
+                        .foregroundStyle(Color.fraiseGreen)
                     Text("you've been matched — see you there.")
-                        .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50"))
+                        .font(.mono(11)).foregroundStyle(Color.fraiseGreen)
                 }
                 .padding(Spacing.md)
             }

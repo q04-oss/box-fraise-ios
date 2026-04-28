@@ -57,7 +57,7 @@ struct ReferralsPanel: View {
                                     } label: {
                                         Image(systemName: copied ? "checkmark" : "doc.on.doc")
                                             .font(.system(size: 14))
-                                            .foregroundStyle(copied ? Color(hex: "4CAF50") : c.muted)
+                                            .foregroundStyle(copied ? Color.fraiseGreen : c.muted)
                                     }
                                     if let url = info?.referralUrl.flatMap({ URL(string: $0) }) {
                                         ShareLink(item: url) {
@@ -96,9 +96,9 @@ struct ReferralsPanel: View {
                                                 HStack(spacing: 4) {
                                                     Image(systemName: "checkmark.circle.fill")
                                                         .font(.system(size: 10))
-                                                        .foregroundStyle(Color(hex: "4CAF50"))
+                                                        .foregroundStyle(Color.fraiseGreen)
                                                     Text("joined")
-                                                        .font(.mono(10)).foregroundStyle(Color(hex: "4CAF50"))
+                                                        .font(.mono(10)).foregroundStyle(Color.fraiseGreen)
                                                 }
                                             } else {
                                                 Text("pending")
@@ -149,15 +149,15 @@ struct ReferralsPanel: View {
                                 }
 
                                 if let err = applyError {
-                                    Text(err).font(.mono(10)).foregroundStyle(Color(hex: "C0392B"))
+                                    Text(err).font(.mono(10)).foregroundStyle(Color.fraiseRed)
                                 }
                             }
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 13)).foregroundStyle(Color(hex: "4CAF50"))
+                                    .font(.system(size: 13)).foregroundStyle(Color.fraiseGreen)
                                 Text("referral code applied — enjoy 10% off your first order.")
-                                    .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50")).lineSpacing(3)
+                                    .font(.mono(11)).foregroundStyle(Color.fraiseGreen).lineSpacing(3)
                             }
                         }
                     }

@@ -40,15 +40,15 @@ struct NFCVerifyPanel: View {
                 // Hero badge
                 HStack(spacing: 12) {
                     ZStack {
-                        Circle().fill(Color(hex: "4CAF50").opacity(0.12)).frame(width: 48, height: 48)
+                        Circle().fill(Color.fraiseGreen.opacity(0.12)).frame(width: 48, height: 48)
                         Image(systemName: "checkmark")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color(hex: "4CAF50"))
+                            .foregroundStyle(Color.fraiseGreen)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text("verified")
                             .font(.mono(11, weight: .medium))
-                            .foregroundStyle(Color(hex: "4CAF50"))
+                            .foregroundStyle(Color.fraiseGreen)
                             .tracking(1.5).textCase(.uppercase)
                         Text("authentic box fraise")
                             .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
@@ -65,7 +65,7 @@ struct NFCVerifyPanel: View {
                     let milestone = r.streakMilestone ?? false
                     VStack(spacing: 0) {
                         bankRow("+\(credits) days", label: "earned", icon: "clock.badge.plus",
-                                accent: Color(hex: "4CAF50"))
+                                accent: Color.fraiseGreen)
                         if let bank = r.bankDays {
                             bankRow("\(bank) days", label: "in bank", icon: "clock")
                         }
@@ -99,14 +99,14 @@ struct NFCVerifyPanel: View {
                             }
                             Spacer()
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 11)).foregroundStyle(Color(hex: "4CAF50").opacity(0.6))
+                                .font(.system(size: 11)).foregroundStyle(Color.fraiseGreen.opacity(0.6))
                         }
                         .padding(Spacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(c.card)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                            Color(hex: "4CAF50").opacity(0.4), lineWidth: 0.5))
+                            Color.fraiseGreen.opacity(0.4), lineWidth: 0.5))
                     }
                 }
 
@@ -119,7 +119,7 @@ struct NFCVerifyPanel: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "lock.open.fill")
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Color(hex: "4CAF50"))
+                                    .foregroundStyle(Color.fraiseGreen)
                                 Text(feature.replacingOccurrences(of: "_", with: " ").lowercased())
                                     .font(.mono(12)).foregroundStyle(c.text)
                             }
@@ -272,8 +272,8 @@ struct NFCVerifyPanel: View {
             if let error {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 12)).foregroundStyle(Color(hex: "C0392B"))
-                    Text(error).font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                        .font(.system(size: 12)).foregroundStyle(Color.fraiseRed)
+                    Text(error).font(.mono(11)).foregroundStyle(Color.fraiseRed)
                 }
             }
 
@@ -351,7 +351,7 @@ struct NFCVerifyPanel: View {
             HStack(spacing: 10) {
                 Image(systemName: added ? "checkmark.circle.fill" : "mappin.circle")
                     .font(.system(size: 14))
-                    .foregroundStyle(added ? Color(hex: "4CAF50") : c.muted)
+                    .foregroundStyle(added ? Color.fraiseGreen : c.muted)
                 Text(added ? "added to messages" : "message \(name.lowercased())")
                     .font(.mono(12)).foregroundStyle(c.text)
                 Spacer()
@@ -364,7 +364,7 @@ struct NFCVerifyPanel: View {
             .background(c.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                added ? Color(hex: "4CAF50").opacity(0.4) : c.border,
+                added ? Color.fraiseGreen.opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
         .disabled(added)

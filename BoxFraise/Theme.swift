@@ -30,6 +30,31 @@ struct FraiseColors {
     )
 }
 
+// MARK: - Semantic colours (referenced throughout; never inline hex)
+
+extension Color {
+    static let fraiseGreen  = Color(hex: "4CAF50")
+    static let fraiseRed    = Color(hex: "C0392B")
+    static let fraiseOrange = Color(hex: "E67E22")
+    static let fraiseBlue   = Color(hex: "2196F3")
+}
+
+// MARK: - Radius scale
+
+enum Radius {
+    static let card:   CGFloat = 14   // cards, containers, panels
+    static let button: CGFloat = 12   // full-width action buttons, list cards
+    static let field:  CGFloat = 10   // text fields, search bars
+    static let chip:   CGFloat = 8    // inline quoted content, small tags
+}
+
+// MARK: - Divider opacity
+
+enum Divide {
+    static let row:     Double = 0.4  // between list rows
+    static let section: Double = 0.6  // between distinct sections
+}
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: .alphanumerics.inverted)

@@ -121,7 +121,7 @@ struct MeetPanel: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, Spacing.md).padding(.vertical, 16)
-                        .background(Color(hex: "4CAF50"))
+                        .background(Color.fraiseGreen)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .padding(.horizontal, Spacing.md)
@@ -130,9 +130,9 @@ struct MeetPanel: View {
                     VStack(spacing: 10) {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.system(size: 14)).foregroundStyle(Color.fraiseGreen)
                             Text("request sent · awaiting their approval")
-                                .font(.mono(11)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.mono(11)).foregroundStyle(Color.fraiseGreen)
                         }
                         Button {
                             session.stop()
@@ -145,7 +145,7 @@ struct MeetPanel: View {
 
                 case .error(let msg):
                     VStack(spacing: 10) {
-                        Text(msg).font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                        Text(msg).font(.mono(11)).foregroundStyle(Color.fraiseRed)
                             .multilineTextAlignment(.center)
                         Button { Task { await startMeet() } } label: {
                             Text("try again").font(.mono(11)).foregroundStyle(c.muted)
@@ -251,9 +251,9 @@ struct MeetPanel: View {
 
     private var stateIconColor: Color {
         switch session.state {
-        case .found:  return Color(hex: "4CAF50")
-        case .done:   return Color(hex: "4CAF50")
-        case .error:  return Color(hex: "C0392B")
+        case .found:  return Color.fraiseGreen
+        case .done:   return Color.fraiseGreen
+        case .error:  return Color.fraiseRed
         default:      return c.muted
         }
     }
@@ -355,9 +355,9 @@ private struct PendingCard: View {
             if !connection.iApproved {
                 Divider().foregroundStyle(c.border).opacity(0.6)
                 HStack(spacing: 0) {
-                    actionButton("approve", color: Color(hex: "4CAF50"), approve: true)
+                    actionButton("approve", color: Color.fraiseGreen, approve: true)
                     Divider().frame(width: 0.5).foregroundStyle(c.border)
-                    actionButton("decline", color: Color(hex: "C0392B"), approve: false)
+                    actionButton("decline", color: Color.fraiseRed, approve: false)
                 }
                 .frame(height: 44)
             }
@@ -365,7 +365,7 @@ private struct PendingCard: View {
         .background(c.card)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-            connection.iApproved ? c.border : Color(hex: "4CAF50").opacity(0.3),
+            connection.iApproved ? c.border : Color.fraiseGreen.opacity(0.3),
             lineWidth: 0.5))
         .disabled(inFlight)
     }

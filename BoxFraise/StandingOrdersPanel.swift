@@ -176,7 +176,7 @@ struct StandingOrderCard: View {
 
                 Divider().frame(width: 0.5).foregroundStyle(c.border)
 
-                actionButton("cancel", color: Color(hex: "C0392B")) {
+                actionButton("cancel", color: Color.fraiseRed) {
                     await update(status: "cancelled")
                 }
             }
@@ -321,7 +321,7 @@ struct CreateStandingOrderView: View {
                 }
 
                 if let error {
-                    Text(error).font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                    Text(error).font(.mono(11)).foregroundStyle(Color.fraiseRed)
                 }
 
                 Button {

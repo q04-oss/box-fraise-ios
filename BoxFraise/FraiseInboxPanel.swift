@@ -160,9 +160,9 @@ private struct MessageRow: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
-                                .font(.system(size: 11)).foregroundStyle(Color(hex: "C0392B"))
+                                .font(.system(size: 11)).foregroundStyle(Color.fraiseRed)
                             Text("delete")
-                                .font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                                .font(.mono(11)).foregroundStyle(Color.fraiseRed)
                         }
                     }
                 }

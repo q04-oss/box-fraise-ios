@@ -32,7 +32,7 @@ struct OrderHistoryPanel: View {
             } else if let err = loadError {
                 VStack(spacing: 12) {
                     Text(err)
-                        .font(.mono(12)).foregroundStyle(Color(hex: "C0392B"))
+                        .font(.mono(12)).foregroundStyle(Color.fraiseRed)
                         .multilineTextAlignment(.center)
                     Button { Task { await load() } } label: {
                         Text("retry")
@@ -90,8 +90,8 @@ struct OrderHistoryCard: View {
 
     private var statusColor: Color {
         switch order.status {
-        case "collected":           return Color(hex: "4CAF50")
-        case "ready":               return Color(hex: "2196F3")
+        case "collected":           return Color.fraiseGreen
+        case "ready":               return Color.fraiseBlue
         case "preparing", "paid":   return c.muted
         default:                    return c.border
         }

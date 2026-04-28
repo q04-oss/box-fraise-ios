@@ -149,7 +149,7 @@ struct WalkInPanel: View {
                         if let error {
                             Text(error)
                                 .font(.mono(11))
-                                .foregroundStyle(Color(hex: "C0392B"))
+                                .foregroundStyle(Color.fraiseRed)
                         }
 
                         if let sheet = paymentSheet {

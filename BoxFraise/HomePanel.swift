@@ -185,7 +185,7 @@ struct HomePanel: View {
                                         .padding(.vertical, 10)
                                     }
                                     if q != recentSearches.last {
-                                        Divider().foregroundStyle(c.border).opacity(0.5)
+                                        Divider().foregroundStyle(c.border).opacity(Divide.row)
                                     }
                                 }
                             }
@@ -275,7 +275,7 @@ private struct ActiveOrderCard: View {
     let action: () -> Void
 
     private var statusColor: Color {
-        order.status == "ready" ? Color(hex: "2196F3") : c.muted
+        order.status == "ready" ? Color.fraiseBlue : c.muted
     }
 
     var body: some View {
@@ -298,7 +298,7 @@ private struct ActiveOrderCard: View {
             .background(c.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                order.status == "ready" ? Color(hex: "2196F3").opacity(0.4) : c.border,
+                order.status == "ready" ? Color.fraiseBlue.opacity(0.4) : c.border,
                 lineWidth: 0.5))
         }
     }
@@ -327,7 +327,7 @@ private struct DateNightCard: View {
                             Text("earn CA$\(invitation.feeCents / 100)")
                                 .font(.mono(8)).foregroundStyle(c.background)
                                 .padding(.horizontal, 5).padding(.vertical, 2)
-                                .background(Color(hex: "4CAF50")).clipShape(Capsule())
+                                .background(Color.fraiseGreen).clipShape(Capsule())
                         }
                     }
                     if let biz = invitation.businessName {

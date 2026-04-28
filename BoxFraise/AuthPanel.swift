@@ -34,7 +34,7 @@ struct AuthPanel: View {
             if let error {
                 Text(error)
                     .font(.mono(11))
-                    .foregroundStyle(Color(hex: "C0392B"))
+                    .foregroundStyle(Color.fraiseRed)
             }
 
             if loading {

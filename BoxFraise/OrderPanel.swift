@@ -266,7 +266,7 @@ struct OrderPanel: View {
             if let error {
                 HStack(spacing: 8) {
                     Text(error)
-                        .font(.mono(11)).foregroundStyle(Color(hex: "C0392B"))
+                        .font(.mono(11)).foregroundStyle(Color.fraiseRed)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button {
@@ -355,9 +355,9 @@ struct OrderPanel: View {
             if let date = state.confirmedOrder?.deliveryDate {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 10)).foregroundStyle(Color(hex: "4CAF50"))
+                        .font(.system(size: 10)).foregroundStyle(Color.fraiseGreen)
                     Text("delivery \(date)")
-                        .font(.mono(10)).foregroundStyle(Color(hex: "4CAF50"))
+                        .font(.mono(10)).foregroundStyle(Color.fraiseGreen)
                 }
             }
 
@@ -371,7 +371,7 @@ struct OrderPanel: View {
                         ZStack(alignment: .leading) {
                             Capsule().fill(c.searchBg).frame(height: 4)
                             Capsule()
-                                .fill(pct >= 1.0 ? Color(hex: "4CAF50") : c.text)
+                                .fill(pct >= 1.0 ? Color.fraiseGreen : c.text)
                                 .frame(width: geo.size.width * pct, height: 4)
                                 .animation(.spring(response: 0.6), value: pct)
                         }
@@ -383,9 +383,9 @@ struct OrderPanel: View {
                     } else {
                         HStack(spacing: 5) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 11)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.system(size: 11)).foregroundStyle(Color.fraiseGreen)
                             Text("threshold met — delivery confirmed")
-                                .font(.mono(10)).foregroundStyle(Color(hex: "4CAF50"))
+                                .font(.mono(10)).foregroundStyle(Color.fraiseGreen)
                         }
                     }
                 }

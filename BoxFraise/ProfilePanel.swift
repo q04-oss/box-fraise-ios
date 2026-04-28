@@ -71,8 +71,8 @@ struct ProfilePanel: View {
                             }
                         }
                         .background(c.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
                     }
 
                     // ── Links ─────────────────────────────────────────────────
@@ -107,19 +107,19 @@ struct ProfilePanel: View {
                         }
                     }
                     .background(c.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
 
                     // ── Sign out ──────────────────────────────────────────────
                     Button { state.signOut() } label: {
                         Text("sign out")
-                            .font(.mono(12)).foregroundStyle(Color(hex: "C0392B"))
+                            .font(.mono(12)).foregroundStyle(Color.fraiseRed)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color(hex: "C0392B").opacity(0.06))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(
-                                Color(hex: "C0392B").opacity(0.2), lineWidth: 0.5))
+                            .background(Color.fraiseRed.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.field))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.field).strokeBorder(
+                                Color.fraiseRed.opacity(0.2), lineWidth: 0.5))
                     }
 
                 } else {
@@ -136,17 +136,23 @@ struct ProfilePanel: View {
                                 .font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.7))
                         }
                         .padding(.horizontal, Spacing.md).padding(.vertical, 16)
-                        .background(c.text).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .background(c.text).clipShape(RoundedRectangle(cornerRadius: Radius.button))
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
         }
+        .refreshable {
+            await state.refreshUser()
+            guard let token = Keychain.userToken else { return }
+            earnings = try? await APIClient.shared.fetchEarnings(token: token)
+        }
         .sheet(isPresented: $showPreferences) {
             PreferencesSheet()
                 .fraiseTheme()
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .task {
             await state.refreshUser()
@@ -233,8 +239,8 @@ private struct PreferencesSheet: View {
                 .padding(.horizontal, Spacing.md).padding(.vertical, 16)
             }
             .background(c.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
             .padding(Spacing.md)
 
             Spacer()

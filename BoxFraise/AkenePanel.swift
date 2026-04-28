@@ -52,10 +52,12 @@ struct AkenePanel: View {
                             Image(systemName: "list.bullet.rectangle")
                                 .font(.system(size: 13)).foregroundStyle(c.muted)
                         }
+                        .contentShape(Rectangle())
                         Button { showCreateEvent = true } label: {
                             Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 13)).foregroundStyle(c.muted)
                         }
+                        .contentShape(Rectangle())
                     }
                     Button { showBuyQuantityPicker = true } label: {
                         HStack(spacing: 4) {
@@ -96,23 +98,28 @@ struct AkenePanel: View {
                 Task { await load() }
             }
             .environment(state).fraiseTheme()
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedHolder) { holder in
             HolderProfileSheet(holder: holder)
                 .environment(state).fraiseTheme()
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showCreateEvent) {
             CreateEventSheet { await load() }
                 .environment(state).fraiseTheme()
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showStaffEvents) {
             StaffEventsSheet()
                 .environment(state).fraiseTheme()
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $celebrationProfile) { p in
             PurchaseCelebrationSheet(profile: p, quantity: buyQuantity)
                 .environment(state).fraiseTheme()
+                .presentationDragIndicator(.visible)
         }
         .confirmationDialog("how many?", isPresented: $showBuyQuantityPicker) {
             ForEach([1, 2, 3, 5], id: \.self) { qty in
@@ -161,7 +168,7 @@ struct AkenePanel: View {
                         if delta != 0 {
                             Text(delta > 0 ? "↑\(delta)" : "↓\(abs(delta))")
                                 .font(.mono(9))
-                                .foregroundStyle(delta > 0 ? Color(hex: "4CAF50") : Color(hex: "C0392B"))
+                                .foregroundStyle(delta > 0 ? Color.fraiseGreen : Color.fraiseRed)
                         }
                         Text("#\(pos)")
                             .font(.system(size: 32, design: .serif)).foregroundStyle(c.text)
@@ -330,14 +337,14 @@ struct AkenePanel: View {
                           systemImage: "calendar.badge.clock")
                         .font(.mono(9))
                         .foregroundStyle(inv.eventStatus == "seated"
-                            ? Color(hex: "4CAF50") : c.muted)
+                            ? Color.fraiseGreen : c.muted)
                 }
                 let left = inv.seatsLeft
                 Label(left > 0 ? "\(left) seats left" : "full",
                       systemImage: left > 0 ? "person.2" : "checkmark.circle")
                     .font(.mono(9))
-                    .foregroundStyle(left <= 0 ? Color(hex: "4CAF50")
-                        : left <= 2 ? Color(hex: "C0392B") : c.muted)
+                    .foregroundStyle(left <= 0 ? Color.fraiseGreen
+                        : left <= 2 ? Color.fraiseRed : c.muted)
                 if inv.isPending, let exp = inv.expiresAt {
                     Label(expiryLabel(exp), systemImage: "timer")
                         .font(.mono(9)).foregroundStyle(c.muted)
@@ -373,15 +380,15 @@ struct AkenePanel: View {
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 10)
         .background(c.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
     }
 
     private func statusPill(_ status: String) -> some View {
         let (label, fg, bg): (String, Color, Color) = switch status {
-        case "accepted":   ("accepted",   Color(hex: "4CAF50"), Color(hex: "4CAF50").opacity(0.12))
+        case "accepted":   ("accepted",   Color.fraiseGreen, Color.fraiseGreen.opacity(0.12))
         case "declined":   ("declined",   c.muted,             c.searchBg)
-        case "waitlisted": ("waitlisted", Color(hex: "E67E22"), Color(hex: "E67E22").opacity(0.12))
+        case "waitlisted": ("waitlisted", Color.fraiseOrange, Color.fraiseOrange.opacity(0.12))
         default:           ("invited",    c.background,        c.text)
         }
         return Text(label)
@@ -532,14 +539,14 @@ private struct EventDetailSheet: View {
                                       systemImage: "calendar.badge.clock")
                                     .font(.mono(10))
                                     .foregroundStyle(st == "seated"
-                                        ? Color(hex: "4CAF50") : c.muted)
+                                        ? Color.fraiseGreen : c.muted)
                             }
                             let left = detail?.seatsLeft ?? invitation.seatsLeft
                             Label("\(left) of \(invitation.capacity) seats left",
                                   systemImage: left > 0 ? "person.2" : "checkmark.circle")
                                 .font(.mono(10))
-                                .foregroundStyle(left <= 0 ? Color(hex: "4CAF50")
-                                    : left <= 2 ? Color(hex: "C0392B") : c.muted)
+                                .foregroundStyle(left <= 0 ? Color.fraiseGreen
+                                    : left <= 2 ? Color.fraiseRed : c.muted)
                         }
 
                         // Add to calendar — only when date is confirmed
@@ -550,7 +557,7 @@ private struct EventDetailSheet: View {
                                 Label(calendarAdded ? "added to calendar" : "add to calendar",
                                       systemImage: calendarAdded ? "checkmark.circle.fill" : "calendar.badge.plus")
                                     .font(.mono(11))
-                                    .foregroundStyle(calendarAdded ? Color(hex: "4CAF50") : c.text)
+                                    .foregroundStyle(calendarAdded ? Color.fraiseGreen : c.text)
                             }
                             .disabled(calendarAdded)
                             .padding(.top, 4)
@@ -792,14 +799,14 @@ private struct StaffEventsSheet: View {
                       systemImage: "person.2")
                     .font(.mono(10))
                     .foregroundStyle(event.acceptedCount >= event.capacity
-                        ? Color(hex: "4CAF50") : c.muted)
+                        ? Color.fraiseGreen : c.muted)
                 if let date = event.eventDate {
                     Label(formatDate(date), systemImage: "calendar")
                         .font(.mono(10)).foregroundStyle(c.muted)
                 }
                 if let wl = event.waitlistCount, wl > 0 {
                     Label("\(wl) waitlisted", systemImage: "clock")
-                        .font(.mono(10)).foregroundStyle(Color(hex: "E67E22"))
+                        .font(.mono(10)).foregroundStyle(Color.fraiseOrange)
                 }
             }
             // Inline date setter for seated events
@@ -849,8 +856,8 @@ private struct StaffEventsSheet: View {
 
     private func statusBadge(_ status: String) -> some View {
         let (label, color): (String, Color) = switch status {
-        case "seated":    ("all seats filled", Color(hex: "4CAF50"))
-        case "confirmed": ("confirmed",         Color(hex: "2196F3"))
+        case "seated":    ("all seats filled", Color.fraiseGreen)
+        case "confirmed": ("confirmed",         Color.fraiseBlue)
         case "completed": ("completed",         c.muted)
         default:          ("inviting",          c.muted)
         }

@@ -79,10 +79,10 @@ struct StaffPanel: View {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle")
                         .font(.system(size: 12))
-                        .foregroundStyle(Color(hex: "C0392B"))
+                        .foregroundStyle(Color.fraiseRed)
                     Text(error)
                         .font(.mono(11))
-                        .foregroundStyle(Color(hex: "C0392B"))
+                        .foregroundStyle(Color.fraiseRed)
                 }
             }
 
@@ -219,8 +219,8 @@ struct StaffOrderCard: View {
 
     private var statusColor: Color {
         switch order.status {
-        case "collected":           return Color(hex: "4CAF50")
-        case "ready":               return Color(hex: "2196F3")
+        case "collected":           return Color.fraiseGreen
+        case "ready":               return Color.fraiseBlue
         case "preparing", "paid":   return c.muted
         default:                    return c.border
         }

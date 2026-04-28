@@ -65,6 +65,7 @@ struct ThreadView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .medium)).foregroundStyle(c.muted)
                 }
+                .contentShape(Rectangle())
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         if thread.isBusiness {
@@ -129,6 +130,7 @@ struct ThreadView: View {
                     }
                     .padding(.vertical, Spacing.sm)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: messages.count) { _, _ in
                     if let last = messages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -456,7 +458,9 @@ private struct MessageBubble: View {
             if !isMe { Spacer(minLength: 60) }
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 2)
-        .onLongPressGesture { onReply() }
+        .contextMenu {
+            Button("reply", systemImage: "arrowshape.turn.up.left") { onReply() }
+        }
     }
 }
 
