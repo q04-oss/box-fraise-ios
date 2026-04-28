@@ -26,6 +26,7 @@
 		B001000000000014 /* StaffPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000017 /* StaffPanel.swift */; };
 		B001000000000015 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000018 /* Theme.swift */; };
 		B001000000000016 /* WalkInPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A001000000000019 /* WalkInPanel.swift */; };
+		B001000000000017 /* Messaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00100000000001A /* Messaging.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		A001000000000017 /* StaffPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffPanel.swift; sourceTree = "<group>"; };
 		A001000000000018 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		A001000000000019 /* WalkInPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkInPanel.swift; sourceTree = "<group>"; };
+		A00100000000001A /* Messaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messaging.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -76,6 +78,7 @@
 				A001000000000017 /* StaffPanel.swift */,
 				A001000000000018 /* Theme.swift */,
 				A001000000000019 /* WalkInPanel.swift */,
+				A00100000000001A /* Messaging.swift */,
 				A001000000000003 /* BoxFraise.entitlements */,
 				A001000000000004 /* Info.plist */,
 			);
@@ -173,6 +176,7 @@
 				B001000000000014 /* StaffPanel.swift in Sources */,
 				B001000000000015 /* Theme.swift in Sources */,
 				B001000000000016 /* WalkInPanel.swift in Sources */,
+				B001000000000017 /* Messaging.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
