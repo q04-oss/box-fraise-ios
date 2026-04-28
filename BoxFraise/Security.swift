@@ -129,6 +129,11 @@ enum AppSecurity {
     // MARK: - Enforcement
 
     static func enforce() {
+        // Block the app from running in a simulator in release builds.
+        // Simulator = no Secure Enclave, no App Attest, trivially reversible.
+        #if !DEBUG && targetEnvironment(simulator)
+        exit(0)
+        #endif
         denyDebuggerAttach()
         if isDebuggerAttached() { exit(0) }
         _ = isJailbroken()

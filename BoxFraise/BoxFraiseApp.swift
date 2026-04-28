@@ -7,6 +7,7 @@ struct BoxFraiseApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
     @State private var screenshotTaken = false
+    @State private var isScreenCaptured = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -19,7 +20,7 @@ struct BoxFraiseApp: App {
                 .animation(.easeInOut(duration: 0.2), value: screenshotTaken)
                 // Background snapshot privacy — covers app switcher screenshot
                 .overlay {
-                    if scenePhase == .background {
+                    if scenePhase == .background || isScreenCaptured {
                         Color(.systemBackground)
                             .ignoresSafeArea()
                             .overlay {
@@ -48,6 +49,12 @@ struct BoxFraiseApp: App {
                     STPAPIClient.shared.publishableKey = Config.stripePublishableKey
                     AppSecurity.enforce()
                     appState.startNetworkMonitor()
+                    isScreenCaptured = UIScreen.main.isCaptured
+                }
+                .onReceive(NotificationCenter.default.publisher(
+                    for: UIScreen.capturedDidChangeNotification)
+                ) { _ in
+                    isScreenCaptured = UIScreen.main.isCaptured
                 }
                 .onOpenURL { url in
                     handleDeepLink(url)

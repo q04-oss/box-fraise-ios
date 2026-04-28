@@ -17,8 +17,8 @@ final class AppAttest {
     private let attestedKey = "fraise_attest_done"
 
     var isSupported: Bool { DCAppAttestService.shared.isSupported }
-    var keyID: String?    { UserDefaults.standard.string(forKey: keyIDKey) }
-    var isAttested: Bool  { UserDefaults.standard.bool(forKey: attestedKey) }
+    var keyID: String?    { Keychain.readMetadata(key: keyIDKey) }
+    var isAttested: Bool  { Keychain.readMetadata(key: attestedKey) == "1" }
 
     /// Call once after sign-in. No-op if already attested or running in simulator.
     func ensureAttestation(userToken: String?) async {
@@ -33,7 +33,7 @@ final class AppAttest {
                 keyID: kid, attestation: attestation,
                 challenge: challenge, userToken: userToken
             )
-            UserDefaults.standard.set(true, forKey: attestedKey)
+            Keychain.saveMetadata(key: attestedKey, value: "1")
         } catch {
             // Non-fatal — HMAC signing continues as the request integrity layer
         }
@@ -49,9 +49,9 @@ final class AppAttest {
     }
 
     private func getOrCreateKeyID() async throws -> String {
-        if let kid = UserDefaults.standard.string(forKey: keyIDKey) { return kid }
+        if let kid = Keychain.readMetadata(key: keyIDKey) { return kid }
         let kid = try await DCAppAttestService.shared.generateKey()
-        UserDefaults.standard.set(kid, forKey: keyIDKey)
+        Keychain.saveMetadata(key: keyIDKey, value: kid)
         return kid
     }
 }

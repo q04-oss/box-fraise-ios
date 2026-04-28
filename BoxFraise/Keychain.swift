@@ -90,4 +90,43 @@ enum Keychain {
         ]
         SecItemDelete(query as CFDictionary)
     }
+
+    // MARK: - Metadata (no biometry — for non-sensitive app keys like AppAttest ID)
+
+    static func saveMetadata(key: String, value: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        let account = "meta_\(key)"
+        let del: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+            kSecAttrAccount: account, kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        SecItemDelete(del as CFDictionary)
+        let add: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+            kSecAttrAccount: account, kSecValueData: data,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrSynchronizable: kCFBooleanFalse as Any,
+        ]
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    static func readMetadata(key: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+            kSecAttrAccount: "meta_\(key)", kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteMetadata(key: String) {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
+            kSecAttrAccount: "meta_\(key)",
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }
