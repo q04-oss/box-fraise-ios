@@ -9,7 +9,7 @@ struct PartnerDetailPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                FraiseBackButton { state.panel = .home }
+                FraiseBackButton { state.navigate(to: .home) }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("example")

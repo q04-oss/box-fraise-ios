@@ -17,3 +17,6 @@ DerivedData/
 # OS
 .DS_Store
 Thumbs.db
+
+*.xcuserstate
+Secrets.xcconfig

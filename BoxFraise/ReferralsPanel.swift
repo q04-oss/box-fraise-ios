@@ -14,7 +14,7 @@ struct ReferralsPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                FraiseBackButton { state.panel = .profile }
+                FraiseBackButton { state.navigate(to: .profile) }
                 Spacer()
                 Text("referrals")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)

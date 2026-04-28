@@ -299,7 +299,7 @@ struct OrderPanel: View {
                     } label: { payButtonLabel }
                 } else {
                     Button {
-                        guard state.isSignedIn else { state.panel = .auth; return }
+                        guard state.isSignedIn else { state.navigate(to: .auth); return }
                         Task { await preparePayment() }
                     } label: { payButtonLabel }
                     .disabled(loading)

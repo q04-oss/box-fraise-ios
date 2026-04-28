@@ -19,7 +19,7 @@ struct ThreadView: View {
     @State private var pollingTask: Task<Void, Never>?
     @State private var replyTo: PlatformMessage?
     @State private var replyToText: String?
-    @AppStorage("thread_disappear_days") private var disappearDaysRaw: String = "{}"
+    @AppStorage(AppStorageKey.disappearDays) private var disappearDaysRaw: String = "{}"
 
     private var myId: Int { state.user?.id ?? 0 }
     private var contactCode: String { thread.userCode ?? "" }

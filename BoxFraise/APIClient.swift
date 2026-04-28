@@ -24,7 +24,8 @@ enum APIError: LocalizedError {
 actor APIClient {
     static let shared = APIClient()
 
-    private let base = URL(string: "https://fraise.box/api")!
+    // URL is a compile-time constant — if this fails the app cannot function at all.
+    private let base: URL = URL(string: "https://fraise.box/api") ?? { fatalError("invalid base URL") }()
 
     // Pinned URLSession — used for ALL requests
     private let session: URLSession = {
@@ -509,7 +510,7 @@ actor APIClient {
     // MARK: - Staff
 
     func fetchStaffOrders(pin: String, token: String) async throws -> [StaffOrder] {
-        let url = URL(string: "https://fraise.box/api/staff/orders")!
+        let url = URL(string: "https://fraise.box/api/staff/orders") ?? base
         let data = try await rawRequest(url: url, headers: [
             "x-staff-pin":   pin,
             "Authorization": "Bearer \(token)",
@@ -518,20 +519,20 @@ actor APIClient {
     }
 
     func staffAction(_ action: String, orderId: Int, pin: String) async throws {
-        let url = URL(string: "https://fraise.box/api/staff/orders/\(orderId)/\(action)")!
+        let url = URL(string: "https://fraise.box/api/staff/orders/\(orderId)/\(action)") ?? base
         _ = try? await rawRequest(url: url, method: "PATCH", headers: ["x-staff-pin": pin])
     }
 
     // MARK: - Walk-in
 
     func fetchWalkInInventory(locationId: Int) async throws -> [WalkInItem] {
-        let url = URL(string: "https://fraise.box/api/walkin/inventory?location_id=\(locationId)")!
+        let url = URL(string: "https://fraise.box/api/walkin/inventory?location_id=\(locationId)") ?? base
         let data = try await rawRequest(url: url)
         return (try? Self.decoder.decode([WalkInItem].self, from: data)) ?? []
     }
 
     func createWalkInOrder(nfcToken: String, chocolate: String, finish: String, customerEmail: String) async throws -> JoinResponse {
-        let url = URL(string: "https://fraise.box/api/walkin/\(nfcToken)/order")!
+        let url = URL(string: "https://fraise.box/api/walkin/\(nfcToken)/order") ?? base
         let body = try JSONSerialization.data(withJSONObject: [
             "chocolate": chocolate,
             "finish": finish,

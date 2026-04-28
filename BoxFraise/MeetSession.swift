@@ -11,6 +11,14 @@ enum MeetState: Equatable {
     case confirming
     case done
     case error(String)
+
+    /// Terminal states require no further user interaction with the session.
+    var isTerminal: Bool {
+        switch self {
+        case .done, .error: return true
+        default:            return false
+        }
+    }
 }
 
 // Named type replaces the anonymous (CBPeripheral, Int) tuple so mutation

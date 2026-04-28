@@ -9,7 +9,7 @@ struct AuthPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            FraiseBackButton { state.panel = .home }
+            FraiseBackButton { state.navigate(to: .home) }
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text("box fraise")

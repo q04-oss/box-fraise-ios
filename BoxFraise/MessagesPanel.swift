@@ -30,7 +30,7 @@ struct MessagesPanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                FraiseBackButton { state.panel = .profile }
+                FraiseBackButton { state.navigate(to: .profile) }
                 Spacer()
                 HStack(spacing: 6) {
                     Text("messages")
@@ -90,7 +90,7 @@ struct MessagesPanel: View {
                         if let d = dorotkaThread {
                             DorotkaRow(thread: d) {
                                 selectedThread = d
-                                state.panel = .messages
+                                state.navigate(to: .messages)
                             }
                             Divider().foregroundStyle(c.border).opacity(0.4)
                                 .padding(.leading, 72)
@@ -98,7 +98,7 @@ struct MessagesPanel: View {
                         ForEach(otherThreads) { thread in
                             ThreadRow(thread: thread, myUserId: state.user?.id ?? 0) {
                                 selectedThread = thread
-                                state.panel = .messages
+                                state.navigate(to: .messages)
                             }
                             Divider().foregroundStyle(c.border).opacity(0.4)
                                 .padding(.leading, 72)

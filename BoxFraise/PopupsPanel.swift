@@ -10,7 +10,7 @@ struct PopupsPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                FraiseBackButton { state.panel = .home }
+                FraiseBackButton { state.navigate(to: .home) }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("popups")
@@ -178,7 +178,7 @@ struct PopupCard: View {
                     } label: { joinButton }
                 } else {
                     Button {
-                        guard state.isSignedIn else { state.panel = .auth; return }
+                        guard state.isSignedIn else { state.navigate(to: .auth); return }
                         Task { await prepareJoin() }
                     } label: { joinButton }
                     .disabled(joining == popup.id)

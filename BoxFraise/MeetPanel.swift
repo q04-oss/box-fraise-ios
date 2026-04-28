@@ -19,7 +19,7 @@ struct MeetPanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                FraiseBackButton { state.panel = .profile; session.stop() }
+                FraiseBackButton { state.navigate(to: .profile; session.stop() }
                 Spacer()
                 Text("met").font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
                 Spacer()

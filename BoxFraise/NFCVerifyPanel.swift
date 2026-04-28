@@ -17,7 +17,7 @@ struct NFCVerifyPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            FraiseBackButton { state.panel = .profile }
+            FraiseBackButton { state.navigate(to: .profile) }
 
             switch outcome {
             case .firstVerify(let r): verifiedView(r)
@@ -88,7 +88,7 @@ struct NFCVerifyPanel: View {
 
                 // fraise.chat identity — first time
                 if let email = r.fraiseChatEmail {
-                    Button { state.panel = .messages } label: {
+                    Button { state.navigate(to: .messages) } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("your fraise identity")

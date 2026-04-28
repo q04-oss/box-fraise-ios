@@ -11,7 +11,7 @@ struct AkenePanel: View {
     @State private var profile: AkeneProfile?
     @State private var leaderboard: [AkeneLeaderboardEntry] = []
     @State private var invitations: [AkeneInvitation] = []
-    @State private var loading = false
+    @State private var loadState: ViewState<Void> = .idle
     @State private var tab: Tab = .rank
     @State private var buySheet: PaymentSheet?
     @State private var pendingPaymentIntentId: String?
@@ -25,7 +25,6 @@ struct AkenePanel: View {
     @State private var showStaffEvents = false
     @State private var purchases: [AkenePurchaseRecord] = []
     @State private var celebrationProfile: AkeneProfile?
-    @AppStorage("akene_prev_rank") private var state.prevAkeneRank: Int = 0
 
     enum Tab { case rank, invitations }
 
@@ -41,7 +40,7 @@ struct AkenePanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                FraiseBackButton { state.panel = .profile }
+                FraiseBackButton { state.navigate(to: .profile) }
                 Spacer()
                 Text("akène")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
@@ -192,12 +191,14 @@ struct AkenePanel: View {
     private var leaderboardList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if loading && leaderboard.isEmpty {
+                if loadState.isLoading && leaderboard.isEmpty {
                     ForEach(0..<8, id: \.self) { _ in
                         FraiseSkeletonRow(wide: false)
                             .padding(.horizontal, Spacing.md).padding(.vertical, 10)
                         Divider().foregroundStyle(c.border).opacity(0.4).padding(.leading, Spacing.md)
                     }
+                } else if case .failed(let msg) = loadState {
+                    FraiseErrorView(message: msg) { await load() }.padding(.top, 60)
                 } else if leaderboard.isEmpty {
                     FraiseEmptyState(icon: "chart.bar", title: "no holders yet",
                                      subtitle: "be the first to hold akène.")
@@ -282,7 +283,7 @@ struct AkenePanel: View {
     private var invitationsList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Spacing.sm) {
-                if invitations.isEmpty && !loading {
+                if invitations.isEmpty && !loadState.isLoading {
                     FraiseEmptyState(icon: "envelope", title: "no evenings yet",
                                      subtitle: "hold akène to receive evening invitations.")
                         .padding(.top, 60)
@@ -402,7 +403,7 @@ struct AkenePanel: View {
 
     @MainActor private func load() async {
         guard let token = Keychain.userToken else { return }
-        loading = true
+        loadState = .loading
         async let p  = try? await APIClient.shared.fetchAkeneProfile(token: token)
         async let lb = try? await APIClient.shared.fetchAkeneLeaderboard(token: token)
         async let iv = try? await APIClient.shared.fetchAkeneInvitations(token: token)
@@ -415,7 +416,7 @@ struct AkenePanel: View {
         }
         if let v = await lb { leaderboard = v }
         if let v = await iv { invitations = v }
-        loading = false
+        loadState = .loaded(())
     }
 
     @MainActor private func preparePurchase(token: String) async {

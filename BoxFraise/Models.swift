@@ -122,6 +122,8 @@ struct FraisePopup: Codable, Identifiable {
     var isOpen: Bool         { status == "open" || status == "threshold_met" }
     var isConfirmed: Bool    { status == "confirmed" }
     var isThresholdMet: Bool { status == "threshold_met" }
+    var isCancelled: Bool    { status == "cancelled" }
+    var isClosed: Bool       { status == "closed" }
     var thresholdPct: Double { minSeats > 0 ? min(1.0, Double(seatsClaimed) / Double(minSeats)) : 0 }
 }
 
@@ -354,6 +356,7 @@ struct MessageThread: Codable, Identifiable {
     var id: Int { contactId }
     var isBusiness: Bool      { isShop }
     var isDorotkaThread: Bool { isDorotka }
+    var hasUnread: Bool       { unreadCount > 0 }
 
     private enum CodingKeys: String, CodingKey {
         case contactId, name, userCode, lastMessageId, lastMessageAt, lastEncrypted
@@ -479,7 +482,9 @@ struct StandingOrder: Codable, Identifiable {
     let finish: String
     let status: String
 
-    var isActive: Bool { status == "active" }
+    var isActive:    Bool { status == "active" }
+    var isPaused:    Bool { status == "paused" }
+    var isCancelled: Bool { status == "cancelled" }
 }
 
 // MARK: - Akène
@@ -526,6 +531,11 @@ struct AkeneInvitation: Codable, Identifiable {
     var isConfirmed:  Bool { eventStatus == "confirmed" }
     var seatsLeft:    Int  { capacity - (acceptedCount ?? 0) }
     var isFull:       Bool { seatsLeft <= 0 }
+    // An invitation is expired when the response deadline has passed.
+    var isExpired:    Bool {
+        guard let iso = expiresAt, let date = FraiseDateFormatter.date(from: iso) else { return false }
+        return date < Date()
+    }
 }
 
 struct AkeneEventDetail: Codable, Identifiable {
@@ -586,6 +596,7 @@ struct AkeneMyEvent: Codable, Identifiable {
     var seatsLeft:   Int  { capacity - acceptedCount }
     var isSeated:    Bool { status == "seated" }
     var isConfirmed: Bool { status == "confirmed" }
+    var isCompleted: Bool { status == "completed" }
 }
 
 // MARK: - Date nights & promotions
@@ -605,8 +616,10 @@ struct DateInvitation: Codable, Identifiable {
     let businessNeighbourhood: String?
 
     var isUnopened: Bool { openedAt == nil }
-    var isPending: Bool  { status == "pending" || status == "opened" }
-    var isMatched: Bool  { status == "matched" }
+    var isOpened:  Bool { openedAt != nil }
+    var isPending:  Bool { status == "pending" || status == "opened" }
+    var isDeclined: Bool { status == "declined" }
+    var isMatched:  Bool { status == "matched" }
 }
 
 struct MemoryRequest: Codable, Identifiable {
@@ -648,10 +661,30 @@ struct BusinessDateStats: Codable {
 
 // MARK: - Panel
 
-enum Panel: Equatable {
+enum Panel: Equatable, CustomStringConvertible {
     case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
     case standingOrders, messages, referrals, meet, akene
     case partnerDetail(Business)
+
+    var description: String {
+        switch self {
+        case .home: return "home"
+        case .auth: return "auth"
+        case .profile: return "profile"
+        case .popups: return "popups"
+        case .order: return "order"
+        case .orderHistory: return "orderHistory"
+        case .staff: return "staff"
+        case .nfcVerify: return "nfcVerify"
+        case .walkIn: return "walkIn"
+        case .standingOrders: return "standingOrders"
+        case .messages: return "messages"
+        case .referrals: return "referrals"
+        case .meet: return "meet"
+        case .akene: return "akene"
+        case .partnerDetail(let b): return "partnerDetail((b.id))"
+        }
+    }
 
     static func == (lhs: Panel, rhs: Panel) -> Bool {
         switch (lhs, rhs) {

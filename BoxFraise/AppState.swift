@@ -17,7 +17,9 @@ final class AppState {
     private var _unapprovedCache: [Business]?
 
     // Navigation
-    var panel: Panel             = .home
+    private(set) var panel: Panel = .home
+
+    func navigate(to destination: Panel) { panel = destination }
     var activeLocation: Business? = nil
 
     // Ordering
@@ -61,15 +63,15 @@ final class AppState {
     // User preferences — backed by UserDefaults, not @AppStorage, so views
     // don't own persistence state.
     var openToDates: Bool {
-        get { UserDefaults.standard.bool(forKey: "open_to_dates") }
-        set { UserDefaults.standard.set(newValue, forKey: "open_to_dates") }
+        get { UserDefaults.standard.bool(forKey: AppStorageKey.openToDates) }
+        set { UserDefaults.standard.set(newValue, forKey: AppStorageKey.openToDates) }
     }
 
     // Previous akène rank — used to compute the rank-delta arrow in AkenePanel.
     // Stored in UserDefaults so it survives session boundaries.
     var prevAkeneRank: Int {
-        get { UserDefaults.standard.integer(forKey: "akene_prev_rank") }
-        set { UserDefaults.standard.set(newValue, forKey: "akene_prev_rank") }
+        get { UserDefaults.standard.integer(forKey: AppStorageKey.akènePrevRank) }
+        set { UserDefaults.standard.set(newValue, forKey: AppStorageKey.akènePrevRank) }
     }
 
     // MARK: - Computed
@@ -109,7 +111,7 @@ final class AppState {
     }
 
     // Cache keys
-    private static let userCacheKey = "cached_box_user"
+    private static let userCacheKey = UserDefaultsKey.cachedUser
 
     // MARK: - Network monitor
 
@@ -188,18 +190,18 @@ final class AppState {
     // don't need to know the routing logic.
     func route(to screenName: String) {
         switch screenName {
-        case "order-history":  panel = .orderHistory
-        case "popups":         panel = .popups
-        case "profile":        panel = isSignedIn ? .profile : .auth
-        case "verify":         panel = .nfcVerify
-        case "standingOrders": panel = isSignedIn ? .standingOrders : .auth
-        case "inbox",
-             "messages":       panel = isSignedIn ? .messages : .auth
-        case "referrals":      panel = isSignedIn ? .referrals : .auth
-        case "meet":           panel = isSignedIn ? .meet : .auth
-        case "akene":          panel = isSignedIn ? .akene : .auth
-        case "offers",
-             "memory":         panel = isSignedIn ? .messages : .auth
+        case DeepLinkPath.orderHistory.rawValue:  panel = .orderHistory
+        case DeepLinkPath.popups.rawValue:         panel = .popups
+        case DeepLinkPath.profile.rawValue:        panel = isSignedIn ? .profile : .auth
+        case DeepLinkPath.verify.rawValue:         panel = .nfcVerify
+        case DeepLinkPath.standingOrders.rawValue: panel = isSignedIn ? .standingOrders : .auth
+        case DeepLinkPath.inbox.rawValue,
+             DeepLinkPath.messages.rawValue:    panel = isSignedIn ? .messages : .auth
+        case DeepLinkPath.referrals.rawValue:      panel = isSignedIn ? .referrals : .auth
+        case DeepLinkPath.meet.rawValue:           panel = isSignedIn ? .meet : .auth
+        case DeepLinkPath.akene.rawValue:          panel = isSignedIn ? .akene : .auth
+        case DeepLinkPath.offers.rawValue,
+             DeepLinkPath.memory.rawValue:      panel = isSignedIn ? .messages : .auth
         default:               panel = .home
         }
         requestedDetent = 0.55
@@ -208,10 +210,10 @@ final class AppState {
     // Write shared data for the home screen widget via App Group
     func writeWidgetData() {
         guard let nearest = nearestCollection,
-              let defaults = UserDefaults(suiteName: "group.com.boxfraise.app") else { return }
-        defaults.set(nearest.name, forKey: "widget_location_name")
-        defaults.set(nearest.displayCity, forKey: "widget_location_city")
-        defaults.set(popups.filter { $0.isOpen }.count, forKey: "widget_popup_count")
+              let defaults = UserDefaults(suiteName: AppGroupKey.suiteName) else { return }
+        defaults.set(nearest.name, forKey: AppGroupKey.locationName)
+        defaults.set(nearest.displayCity, forKey: AppGroupKey.locationCity)
+        defaults.set(popups.filter { $0.isOpen }.count, forKey: AppGroupKey.popupCount)
     }
 
     func handle(_ error: Error) {

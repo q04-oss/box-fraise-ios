@@ -161,7 +161,7 @@ struct ContentView: View {
         if biz.isApproved {
             tappedBusiness = biz
         } else {
-            state.panel = .partnerDetail(biz)
+            state.navigate(to: .partnerDetail(biz))
             selectedDetent = .fraction(0.5)
         }
     }

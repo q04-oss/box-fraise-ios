@@ -9,7 +9,7 @@ struct OrderHistoryPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                FraiseBackButton { state.panel = .profile }
+                FraiseBackButton { state.navigate(to: .profile) }
                 Spacer()
                 Text("orders")
                     .font(.system(size: 14, design: .serif))

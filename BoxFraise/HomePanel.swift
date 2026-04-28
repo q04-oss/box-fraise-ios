@@ -132,7 +132,7 @@ struct HomePanel: View {
                                 .font(.mono(10))
                                 .foregroundStyle(c.muted)
                                 .tracking(1)
-                            Button { state.panel = .popups } label: {
+                            Button { state.navigate(to: .popups) } label: {
                                 Text("popups")
                                     .font(.mono(10))
                                     .foregroundStyle(c.muted)
@@ -147,7 +147,7 @@ struct HomePanel: View {
 
                         if let active = state.activeOrder {
                             ActiveOrderCard(order: active) {
-                                state.panel = .orderHistory
+                                state.navigate(to: .orderHistory)
                             }
                             .padding(.top, 12)
                         }
@@ -155,12 +155,12 @@ struct HomePanel: View {
                         // Date night takes priority — it's time-sensitive
                         if let inv = pendingDateInvitation {
                             DateNightCard(invitation: inv) {
-                                state.panel = .messages
+                                state.navigate(to: .messages)
                             }
                             .padding(.top, 12)
                         } else if let inv = pendingAkeneInvitation {
                             AkenePendingCard(invitation: inv) {
-                                state.panel = .akene
+                                state.navigate(to: .akene)
                             }
                             .padding(.top, 12)
                         }
@@ -255,7 +255,7 @@ struct HomePanel: View {
             }
         }
         .onAppear {
-            recentSearches = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
+            recentSearches = UserDefaults.standard.stringArray(forKey: AppStorageKey.recentSearches) ?? []
         }
         .task {
             guard let token = Keychain.userToken else { return }
@@ -269,11 +269,11 @@ struct HomePanel: View {
     private func saveRecentSearch(_ query: String) {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
-        var list = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
+        var list = UserDefaults.standard.stringArray(forKey: AppStorageKey.recentSearches) ?? []
         list.removeAll { $0 == q }
         list.insert(q, at: 0)
         if list.count > 3 { list = Array(list.prefix(3)) }
-        UserDefaults.standard.set(list, forKey: "recentSearches")
+        UserDefaults.standard.set(list, forKey: AppStorageKey.recentSearches)
         recentSearches = list
     }
 }

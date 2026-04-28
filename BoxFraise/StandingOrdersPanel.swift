@@ -11,7 +11,7 @@ struct StandingOrdersPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                FraiseBackButton { state.panel = .profile }
+                FraiseBackButton { state.navigate(to: .profile) }
                 Spacer()
                 Text("standing orders")
                     .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
@@ -74,7 +74,7 @@ struct StandingOrdersPanel: View {
                 title: "not yet unlocked",
                 subtitle: "standing orders unlock after your first box fraise pickup."
             )
-            Button { state.panel = .nfcVerify } label: {
+            Button { state.navigate(to: .nfcVerify) } label: {
                 HStack {
                     Text("verify pickup").font(.mono(13, weight: .medium)).foregroundStyle(.white)
                     Spacer()

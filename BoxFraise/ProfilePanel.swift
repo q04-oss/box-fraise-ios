@@ -9,7 +9,7 @@ struct ProfilePanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                FraiseBackButton { state.panel = .home }
+                FraiseBackButton { state.navigate(to: .home) }
 
                 if let user = state.user {
 
@@ -42,7 +42,7 @@ struct ProfilePanel: View {
                     if user.verified {
                         VStack(spacing: 0) {
                             if let email = user.fraiseChatEmail {
-                                Button { state.panel = .messages } label: {
+                                Button { state.navigate(to: .messages) } label: {
                                     socialRow(email, label: "messages", icon: "at")
                                         .overlay(alignment: .trailing) {
                                             if state.totalUnreadMessages > 0 {
@@ -78,31 +78,31 @@ struct ProfilePanel: View {
                     // ── Links ─────────────────────────────────────────────────
                     VStack(spacing: 0) {
                         profileLink("akène", icon: "leaf") {
-                            state.panel = .akene
+                            state.navigate(to: .akene)
                         }
                         profileLink("preferences", icon: "slider.horizontal.3") {
                             showPreferences = true
                         }
                         profileLink("order history", icon: "clock.arrow.circlepath") {
-                            state.panel = .orderHistory
+                            state.navigate(to: .orderHistory)
                         }
                         profileLink("met", icon: "person.2.wave.2") {
-                            state.panel = .meet
+                            state.navigate(to: .meet)
                         }
                         profileLink("referrals", icon: "person.2") {
-                            state.panel = .referrals
+                            state.navigate(to: .referrals)
                         }
                         profileLink("verify pickup", icon: "checkmark.seal") {
-                            state.panel = .nfcVerify
+                            state.navigate(to: .nfcVerify)
                         }
                         if user.verified {
                             profileLink("standing orders", icon: "arrow.clockwise.circle") {
-                                state.panel = .standingOrders
+                                state.navigate(to: .standingOrders)
                             }
                         }
                         if user.isShop {
                             profileLink("staff orders", icon: "person.badge.key") {
-                                state.panel = .staff
+                                state.navigate(to: .staff)
                             }
                         }
                     }
@@ -128,7 +128,7 @@ struct ProfilePanel: View {
                         title: "not signed in",
                         subtitle: "sign in to place orders, join popups, and verify your pickup."
                     )
-                    Button { state.panel = .auth } label: {
+                    Button { state.navigate(to: .auth) } label: {
                         HStack {
                             Text("sign in").font(.mono(13, weight: .medium)).foregroundStyle(.white)
                             Spacer()

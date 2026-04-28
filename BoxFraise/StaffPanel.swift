@@ -20,7 +20,7 @@ struct StaffPanel: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                FraiseBackButton { state.panel = .home }
+                FraiseBackButton { state.navigate(to: .home) }
                 Spacer()
                 Text("staff")
                     .font(.system(size: 14, design: .serif))
@@ -115,7 +115,7 @@ struct StaffPanel: View {
     private var ordersList: some View {
         VStack(spacing: 0) {
             // Walk-in shortcut
-            Button { state.panel = .walkIn } label: {
+            Button { state.navigate(to: .walkIn) } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "person.badge.plus")
                         .font(.system(size: 13))
