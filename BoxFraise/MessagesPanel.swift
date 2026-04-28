@@ -8,6 +8,7 @@ struct MessagesPanel: View {
     @State private var showStatusEditor = false
     @State private var statusDraft = ""
     @State private var selectedThread: MessageThread?
+    @State private var showCompose = false
 
     private var totalUnread: Int { threads.reduce(0) { $0 + $1.unreadCount } }
 
@@ -31,9 +32,15 @@ struct MessagesPanel: View {
                     }
                 }
                 Spacer()
-                Button { showStatusEditor = true } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 13)).foregroundStyle(c.muted)
+                HStack(spacing: 14) {
+                    Button { showCompose = true } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 14)).foregroundStyle(c.muted)
+                    }
+                    Button { showStatusEditor = true } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 13)).foregroundStyle(c.muted)
+                    }
                 }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 14)
@@ -93,6 +100,13 @@ struct MessagesPanel: View {
                 .environment(state)
                 .fraiseTheme()
         }
+        .sheet(isPresented: $showCompose) {
+            ComposeSheet(existing: threads) { thread in
+                selectedThread = thread
+            }
+            .environment(state)
+            .fraiseTheme()
+        }
         .sheet(isPresented: $showStatusEditor) {
             StatusEditorSheet(current: state.user?.status ?? "") { newStatus in
                 Task {
@@ -111,6 +125,7 @@ struct MessagesPanel: View {
         guard let token = Keychain.userToken else { return }
         loading = true
         threads = (try? await APIClient.shared.fetchThreads(token: token)) ?? []
+        state.totalUnreadMessages = threads.reduce(0) { $0 + $1.unreadCount }
         loading = false
     }
 }
@@ -193,6 +208,120 @@ private struct ThreadRow: View {
         guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
         if Calendar.current.isDateInToday(date) { return date.formatted(.dateTime.hour().minute()) }
         return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+// MARK: - Compose sheet
+
+private struct ComposeSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.fraiseColors) private var c
+    @Environment(\.dismiss) private var dismiss
+    let existing: [MessageThread]
+    let onSelect: (MessageThread) -> Void
+
+    @State private var contacts: [FraiseContact] = []
+    @State private var search = ""
+
+    private var filtered: [FraiseContact] {
+        guard !search.isEmpty else { return contacts }
+        return contacts.filter { ($0.name ?? "").localizedCaseInsensitiveContains(search) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("cancel") { dismiss() }
+                    .font(.mono(12)).foregroundStyle(c.muted)
+                Spacer()
+                Text("new message")
+                    .font(.system(size: 14, design: .serif)).foregroundStyle(c.text)
+                Spacer()
+                Color.clear.frame(width: 50)
+            }
+            .padding(.horizontal, Spacing.md).padding(.vertical, Spacing.md)
+
+            // Search bar
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12)).foregroundStyle(c.muted)
+                TextField("search contacts", text: $search)
+                    .font(.mono(13)).foregroundStyle(c.text)
+                    .autocorrectionDisabled().textInputAutocapitalization(.never)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(c.searchBg)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(c.border, lineWidth: 0.5))
+            .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.sm)
+
+            Divider().foregroundStyle(c.border).opacity(0.6)
+
+            if contacts.isEmpty {
+                FraiseEmptyState(icon: "person.2", title: "no contacts",
+                                 subtitle: "meet someone in person first.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filtered) { contact in
+                            Button {
+                                let thread = existing.first { $0.contactId == (contact.contactId ?? contact.id) }
+                                    ?? MessageThread(
+                                        contactId: contact.contactId ?? contact.id,
+                                        name: contact.name,
+                                        userCode: contact.userCode,
+                                        lastMessageId: nil, lastMessageAt: nil,
+                                        lastEncrypted: nil, lastType: nil, lastSenderId: nil,
+                                        unreadCount: 0, metAt: contact.metAt,
+                                        isShop: nil, isDorotka: nil, contactStatus: nil
+                                    )
+                                dismiss()
+                                onSelect(thread)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(c.card)
+                                            .overlay(Circle().strokeBorder(c.border, lineWidth: 0.5))
+                                            .frame(width: 44, height: 44)
+                                        Text(contact.name?.prefix(1).uppercased() ?? "·")
+                                            .font(.system(size: 16, design: .serif)).foregroundStyle(c.text)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(contact.name?.lowercased() ?? contact.userCode ?? "member")
+                                            .font(.mono(13)).foregroundStyle(c.text)
+                                        if let met = contact.metAt {
+                                            Text("met \(shortDate(met))")
+                                                .font(.mono(9)).foregroundStyle(c.muted)
+                                        }
+                                    }
+                                    Spacer()
+                                    if existing.contains(where: { $0.contactId == (contact.contactId ?? contact.id) }) {
+                                        Image(systemName: "bubble.left.fill")
+                                            .font(.system(size: 11)).foregroundStyle(c.muted)
+                                    }
+                                }
+                                .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+                            }
+                            Divider().foregroundStyle(c.border).opacity(0.4)
+                                .padding(.leading, 68)
+                        }
+                    }
+                }
+            }
+        }
+        .background(c.background.ignoresSafeArea())
+        .task {
+            guard let token = Keychain.userToken else { return }
+            contacts = (try? await APIClient.shared.fetchContacts(token: token)) ?? []
+        }
+    }
+
+    private func shortDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return "" }
+        return date.formatted(.dateTime.month(.wide).day())
     }
 }
 

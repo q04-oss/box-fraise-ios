@@ -39,6 +39,9 @@ final class AppState {
     // Social
     var socialAccess: UserSocialAccess? = nil
 
+    // Messaging
+    var totalUnreadMessages: Int = 0
+
     // Re-auth
     var needsReauth: Bool = false
 
@@ -111,7 +114,8 @@ final class AppState {
 
     func signIn(response: AuthResponse) async {
         Keychain.userToken = response.token
-        let me = BoxUser(id: response.userId, displayName: response.displayName, verified: response.verified)
+        let me = BoxUser(id: response.userId, displayName: response.displayName, verified: response.verified,
+                         isShop: nil, fraiseChatEmail: nil, currentStreakWeeks: nil, socialTier: nil)
         user = me
         persist(user: me)
         panel = .home

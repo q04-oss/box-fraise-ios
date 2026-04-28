@@ -232,7 +232,8 @@ actor APIClient {
 
     func sendMessage(recipientCode: String, encryptedBody: String, messageType: String = "text",
                      fraiseObject: FraiseObject? = nil, x3dhSenderKey: String? = nil,
-                     expiresInDays: Int? = nil, token: String) async throws -> PlatformMessage {
+                     expiresInDays: Int? = nil, replyToId: Int? = nil,
+                     replyToSnippet: String? = nil, token: String) async throws -> PlatformMessage {
         var body: [String: Any] = [
             "recipient_code": recipientCode,
             "encrypted_body": encryptedBody,
@@ -244,7 +245,13 @@ actor APIClient {
         }
         if let key = x3dhSenderKey { body["x3dh_sender_key"] = key }
         if let days = expiresInDays { body["expires_in_days"] = days }
+        if let rid  = replyToId     { body["reply_to_id"]    = rid }
+        if let snip = replyToSnippet { body["reply_to_snippet"] = snip }
         return try await request("/platform-messages/send", method: "POST", body: body, token: token)
+    }
+
+    func fetchNewMessages(userCode: String, afterId: Int, token: String) async throws -> [PlatformMessage] {
+        try await request("/platform-messages/thread/\(userCode)/new?after_id=\(afterId)", token: token)
     }
 
     func fetchThreads(token: String) async throws -> [MessageThread] {

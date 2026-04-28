@@ -299,6 +299,7 @@ struct MessageThread: Codable, Identifiable {
     let metAt: String?
     let isShop: Bool?
     let isDorotka: Bool?
+    let contactStatus: String?
 
     var id: Int { contactId }
     var isBusiness: Bool { isShop == true }
@@ -317,6 +318,8 @@ struct PlatformMessage: Codable, Identifiable {
     let deliveredAt: String?
     let readAt: String?
     let expiresAt: String?
+    let replyToId: Int?
+    let replyToSnippet: String?
 }
 
 struct FraiseObject: Codable {

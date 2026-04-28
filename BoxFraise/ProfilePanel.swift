@@ -42,6 +42,15 @@ struct ProfilePanel: View {
                             if let email = user.fraiseChatEmail {
                                 Button { state.panel = .messages } label: {
                                     socialRow(email, label: "messages", icon: "at")
+                                        .overlay(alignment: .trailing) {
+                                            if state.totalUnreadMessages > 0 {
+                                                Text("\(state.totalUnreadMessages)")
+                                                    .font(.mono(9)).foregroundStyle(c.background)
+                                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                                    .background(c.text).clipShape(Capsule())
+                                                    .padding(.trailing, Spacing.md)
+                                            }
+                                        }
                                 }
                             }
                             if let tier = state.socialAccess?.tier ?? user.socialTier {

@@ -17,9 +17,45 @@ struct ThreadView: View {
     @State private var attachedObject: FraiseObject?
     @State private var typingTask: Task<Void, Never>?
     @State private var pollingTask: Task<Void, Never>?
+    @State private var replyTo: PlatformMessage?
+    @State private var replyToText: String?
+    @AppStorage("thread_disappear_days") private var disappearDaysRaw: String = "{}"
 
     private var myId: Int { state.user?.id ?? 0 }
     private var contactCode: String { thread.userCode ?? "" }
+
+    // Per-thread disappearing message preference stored as JSON dict in a single AppStorage key
+    private var disappearDays: Int? {
+        guard let data = disappearDaysRaw.data(using: .utf8),
+              let dict = try? JSONDecoder().decode([String: Int].self, from: data)
+        else { return nil }
+        return dict["\(thread.contactId)"]
+    }
+
+    private func setDisappearDays(_ days: Int?) {
+        var dict = (try? JSONDecoder().decode([String: Int].self,
+                    from: disappearDaysRaw.data(using: .utf8) ?? Data())) ?? [:]
+        if let days { dict["\(thread.contactId)"] = days }
+        else { dict.removeValue(forKey: "\(thread.contactId)") }
+        disappearDaysRaw = (try? String(data: JSONEncoder().encode(dict), encoding: .utf8)) ?? "{}"
+    }
+
+    private var disappearLabel: String {
+        switch disappearDays {
+        case 7:  return "7d"
+        case 30: return "30d"
+        default: return "∞"
+        }
+    }
+
+    private func cycleDisappear() {
+        switch disappearDays {
+        case nil: setDisappearDays(7)
+        case 7:   setDisappearDays(30)
+        default:  setDisappearDays(nil)
+        }
+        Haptics.impact(.light)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +74,11 @@ struct ThreadView: View {
                         Text(thread.name?.lowercased() ?? contactCode)
                             .font(.system(size: 15, design: .serif)).foregroundStyle(c.text)
                     }
-                    if let met = thread.metAt {
+                    // Contact status takes priority over met date
+                    if let status = thread.contactStatus, !status.isEmpty {
+                        Text(status.lowercased())
+                            .font(.mono(9)).foregroundStyle(c.muted).tracking(0.3)
+                    } else if let met = thread.metAt {
                         Text(thread.isBusiness
                              ? "collected here · \(shortDate(met))"
                              : "met \(shortDate(met))")
@@ -46,6 +86,19 @@ struct ThreadView: View {
                     }
                 }
                 Spacer()
+                // Disappearing messages toggle
+                Button { cycleDisappear() } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: disappearDays != nil ? "timer" : "timer.circle")
+                            .font(.system(size: 11))
+                        Text(disappearLabel)
+                            .font(.mono(9))
+                    }
+                    .foregroundStyle(disappearDays != nil ? c.text : c.muted)
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(disappearDays != nil ? c.searchBg : Color.clear)
+                    .clipShape(Capsule())
+                }
             }
             .padding(.horizontal, Spacing.md).padding(.vertical, 12)
 
@@ -59,7 +112,11 @@ struct ThreadView: View {
                             MessageBubble(
                                 message: msg,
                                 plaintext: decrypted[msg.id],
-                                isMe: msg.senderId == myId
+                                isMe: msg.senderId == myId,
+                                onReply: {
+                                    replyTo = msg
+                                    replyToText = msg.senderId == myId ? decrypted[msg.id] : decrypted[msg.id]
+                                }
                             )
                             .id(msg.id)
                         }
@@ -82,10 +139,30 @@ struct ThreadView: View {
                 }
             }
 
-            // Attached fraise object preview
+            // Reply-to preview bar
+            if let reply = replyTo {
+                HStack(spacing: 8) {
+                    Rectangle().fill(c.muted).frame(width: 2).cornerRadius(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(reply.senderId == myId ? "you" : (thread.name?.lowercased() ?? "them"))
+                            .font(.mono(8)).foregroundStyle(c.muted).tracking(0.5)
+                        Text(replyToText ?? reply.replyToSnippet ?? "[encrypted]")
+                            .font(.mono(11)).foregroundStyle(c.text).lineLimit(2)
+                    }
+                    Spacer()
+                    Button { replyTo = nil; replyToText = nil } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13)).foregroundStyle(c.muted)
+                    }
+                }
+                .padding(.horizontal, Spacing.md).padding(.vertical, 8)
+                .background(c.searchBg)
+            }
+
+            // Fraise object attachment preview
             if let obj = attachedObject {
                 HStack(spacing: 8) {
-                    Image(systemName: fraisObjectIcon(obj.type))
+                    Image(systemName: fraiseObjectIcon(obj.type))
                         .font(.system(size: 11)).foregroundStyle(c.muted)
                     Text(obj.name?.lowercased() ?? obj.type)
                         .font(.mono(11)).foregroundStyle(c.text).lineLimit(1)
@@ -132,13 +209,22 @@ struct ThreadView: View {
         .onDisappear { pollingTask?.cancel(); typingTask?.cancel() }
         .confirmationDialog("share", isPresented: $showAttach) {
             ForEach(state.varieties.prefix(5)) { v in
-                Button(v.name) { attachedObject = FraiseObject(type: "variety", id: v.id, name: v.name, detail: v.description, priceCents: v.priceCents) }
+                Button(v.name) {
+                    attachedObject = FraiseObject(type: "variety", id: v.id, name: v.name,
+                                                  detail: v.description, priceCents: v.priceCents)
+                }
             }
             ForEach(state.popups.prefix(3)) { p in
-                Button(p.title) { attachedObject = FraiseObject(type: "popup", id: p.id, name: p.title, detail: nil, priceCents: p.priceCents) }
+                Button(p.title) {
+                    attachedObject = FraiseObject(type: "popup", id: p.id, name: p.title,
+                                                  detail: nil, priceCents: p.priceCents)
+                }
             }
             if let loc = state.nearestCollection {
-                Button("share \(loc.name)") { attachedObject = FraiseObject(type: "node", id: loc.id, name: loc.name, detail: loc.neighbourhood, priceCents: nil) }
+                Button("share \(loc.name)") {
+                    attachedObject = FraiseObject(type: "node", id: loc.id, name: loc.name,
+                                                  detail: loc.neighbourhood, priceCents: nil)
+                }
             }
             Button("cancel", role: .cancel) {}
         }
@@ -150,7 +236,6 @@ struct ThreadView: View {
         guard let token = Keychain.userToken else { return }
         loading = true
 
-        // Fetch key bundle if no session
         if !MessagingKeyStore.hasSession(for: thread.contactId) {
             bundle = try? await APIClient.shared.fetchKeyBundleByCode(contactCode, token: token)
         }
@@ -185,6 +270,11 @@ struct ThreadView: View {
         let text = draft.trimmingCharacters(in: .whitespaces)
         draft = ""; sending = true
 
+        // Capture and clear reply state before the async gap
+        let replyId     = replyTo?.id
+        let replySnip   = replyToText ?? replyTo?.replyToSnippet
+        replyTo = nil; replyToText = nil
+
         do {
             let b = bundle ?? (try? await APIClient.shared.fetchKeyBundleByCode(contactCode, token: token))
             guard let b else { sending = false; return }
@@ -196,14 +286,15 @@ struct ThreadView: View {
                 bundle: b
             )
 
-            let bankDays = state.socialAccess?.bankDays
             let msg = try await APIClient.shared.sendMessage(
                 recipientCode: contactCode,
                 encryptedBody: wire,
                 messageType: attachedObject?.type ?? "text",
                 fraiseObject: attachedObject,
                 x3dhSenderKey: x3dhKey,
-                expiresInDays: bankDays,
+                expiresInDays: disappearDays,
+                replyToId: replyId,
+                replyToSnippet: replySnip,
                 token: token
             )
             decrypted[msg.id] = text.isEmpty ? nil : text
@@ -216,7 +307,7 @@ struct ThreadView: View {
         sending = false
     }
 
-    // MARK: - Typing
+    // MARK: - Typing + live polling
 
     private func broadcastTyping() {
         typingTask?.cancel()
@@ -231,8 +322,34 @@ struct ThreadView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 guard let token = Keychain.userToken else { continue }
-                let typing = (try? await APIClient.shared.checkTyping(fromUserCode: contactCode, token: token)) ?? false
-                await MainActor.run { theyAreTyping = typing }
+
+                async let typingResult = APIClient.shared.checkTyping(fromUserCode: contactCode, token: token)
+                async let newMsgsResult = APIClient.shared.fetchNewMessages(
+                    userCode: contactCode,
+                    afterId: await MainActor.run { messages.last?.id ?? 0 },
+                    token: token
+                )
+
+                let typing = (try? await typingResult) ?? false
+                let newMsgs = (try? await newMsgsResult) ?? []
+
+                await MainActor.run {
+                    theyAreTyping = typing
+                    if !newMsgs.isEmpty {
+                        let existing = Set(messages.map { $0.id })
+                        let fresh = newMsgs.filter { !existing.contains($0.id) }
+                        if !fresh.isEmpty {
+                            decryptAll(fresh)
+                            messages.append(contentsOf: fresh)
+                            Haptics.impact(.light)
+                        }
+                    }
+                }
+
+                if !newMsgs.isEmpty {
+                    try? await APIClient.shared.markThreadDelivered(userCode: contactCode, token: token)
+                    try? await APIClient.shared.markThreadRead(userCode: contactCode, token: token)
+                }
             }
         }
     }
@@ -246,7 +363,7 @@ struct ThreadView: View {
         return date.formatted(.dateTime.month(.wide).day())
     }
 
-    private func fraisObjectIcon(_ type: String) -> String {
+    private func fraiseObjectIcon(_ type: String) -> String {
         switch type {
         case "variety":  return "leaf"
         case "popup":    return "calendar.badge.clock"
@@ -263,6 +380,7 @@ private struct MessageBubble: View {
     let message: PlatformMessage
     let plaintext: String?
     let isMe: Bool
+    let onReply: () -> Void
 
     private var receiptLabel: String? {
         guard isMe else { return nil }
@@ -284,11 +402,31 @@ private struct MessageBubble: View {
         return days > 0 ? "expires in \(days)d" : nil
     }
 
+    private var timeLabel: String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: message.sentAt) ?? ISO8601DateFormatter().date(from: message.sentAt)
+        else { return "" }
+        return date.formatted(.dateTime.hour().minute())
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 6) {
             if isMe { Spacer(minLength: 60) }
 
             VStack(alignment: isMe ? .trailing : .leading, spacing: 3) {
+                // Quoted reply snippet
+                if let snippet = message.replyToSnippet {
+                    HStack(spacing: 5) {
+                        Rectangle().fill(c.muted).frame(width: 2).cornerRadius(1)
+                        Text(snippet)
+                            .font(.mono(10)).foregroundStyle(c.muted).lineLimit(1)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(c.searchBg)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+
                 if let obj = message.fraiseObject {
                     FraiseObjectCard(object: obj, isMe: isMe)
                 } else {
@@ -296,14 +434,15 @@ private struct MessageBubble: View {
                         .font(.mono(13)).foregroundStyle(isMe ? Color.white : c.text)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(isMe ? c.text : c.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 16,
-                            style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(isMe ? nil :
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .strokeBorder(c.border, lineWidth: 0.5))
                 }
 
                 HStack(spacing: 4) {
+                    Text(timeLabel)
+                        .font(.mono(8)).foregroundStyle(c.muted)
                     if let expiry = expiryLabel {
                         Image(systemName: "clock").font(.system(size: 8)).foregroundStyle(c.muted)
                         Text(expiry).font(.mono(8)).foregroundStyle(c.muted)
@@ -317,6 +456,7 @@ private struct MessageBubble: View {
             if !isMe { Spacer(minLength: 60) }
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 2)
+        .onLongPressGesture { onReply() }
     }
 }
 
