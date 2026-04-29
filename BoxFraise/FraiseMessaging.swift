@@ -89,10 +89,7 @@ actor FraiseMessaging {
     private static let opkReplenishThreshold = 5
     private static let opkBatchSize          = 10
 
-    // Flip to true once server ships identitySigningKey on all key bundles.
-    // In strict mode, sessions cannot be established without signature verification —
-    // any bundle missing identitySigningKey throws FraiseMessagingError.unverifiablePreKey.
-    private static let requirePreKeyVerification = false
+    private static let requirePreKeyVerification = true
 
     // MARK: - Key publishing with retry
 
