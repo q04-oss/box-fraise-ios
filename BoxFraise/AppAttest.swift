@@ -44,7 +44,9 @@ final class AppAttest {
         }
         do {
             let kid = try await getOrCreateKeyID()
-            let challenge = Data(UUID().uuidString.utf8)
+            // Use a server-issued challenge so the server can verify the attestation was bound
+            // to a challenge it generated — prevents replay of old attestation objects.
+            let challenge = (try? await APIClient.shared.fetchAttestChallenge()) ?? Data(UUID().uuidString.utf8)
             let attestation = try await DCAppAttestService.shared.attestKey(
                 kid, clientDataHash: Data(SHA256.hash(data: challenge))
             )

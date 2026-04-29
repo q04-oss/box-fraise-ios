@@ -20,6 +20,7 @@ struct ThreadView: View {
     @State private var replyTo: PlatformMessage?
     @State private var replyToText: String?
     @State private var showSafetyNumber = false
+    @State private var sendErrorMessage: String?
     @AppStorage(AppStorageKey.disappearDays) private var disappearDaysRaw: String = "{}"
 
     private var myId: Int { state.user?.id ?? 0 }
@@ -240,6 +241,14 @@ struct ThreadView: View {
             )
             .fraiseTheme()
         }
+        .alert("message not sent", isPresented: Binding(
+            get: { sendErrorMessage != nil },
+            set: { if !$0 { sendErrorMessage = nil } }
+        )) {
+            Button("ok", role: .cancel) { sendErrorMessage = nil }
+        } message: {
+            Text(sendErrorMessage ?? "")
+        }
         .confirmationDialog("share", isPresented: $showAttach) {
             ForEach(state.varieties.prefix(5)) { v in
                 Button(v.name) {
@@ -313,9 +322,13 @@ struct ThreadView: View {
         replyTo = nil; replyToText = nil
 
         do {
-            let b = bundle ?? (try? await APIClient.shared.fetchKeyBundleByCode(contactCode, token: token))
-            guard let b else { sending = false; return }
-            bundle = b
+            let b: UserKeyBundle
+            if let cached = bundle {
+                b = cached
+            } else {
+                b = try await APIClient.shared.fetchKeyBundleByCode(contactCode, token: token)
+                bundle = b
+            }
 
             let (wire, x3dhKey, _) = try await FraiseMessaging.shared.encrypt(
                 plaintext: text.isEmpty ? "(fraise object)" : text,
@@ -338,6 +351,12 @@ struct ThreadView: View {
             messages.append(msg)
             attachedObject = nil
             Haptics.impact(.light)
+        } catch APIError.keysNeedRefresh {
+            Haptics.notification(.error)
+            sendErrorMessage = APIError.keysNeedRefresh.localizedDescription
+        } catch APIError.keysExpired {
+            Haptics.notification(.error)
+            sendErrorMessage = APIError.keysExpired.localizedDescription
         } catch {
             Haptics.notification(.error)
         }

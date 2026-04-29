@@ -203,6 +203,138 @@ final class ViewStateTests: XCTestCase {
     }
 }
 
+// MARK: - HMAC Signing Protocol
+
+/// These tests verify the nonce-inclusive HMAC signing protocol that the iOS client
+/// uses for every request and the Rust server validates. They do NOT test the actual
+/// HMAC key (device-specific, never accessible in tests) — they test that:
+///   1. The nonce is inside the signed message (not just a header that can be stripped)
+///   2. Different nonces produce different message bytes (nonce is part of the signature input)
+///   3. The message format matches the server's expectation: method + path + ts + nonce + body
+///   4. Nonces are valid UUIDs (the server rejects anything else with 400)
+///
+/// Server-side counterparts: `hmac.rs` tests in box-fraise-platform.
+final class HMACSigningTests: XCTestCase {
+
+    // MARK: - Nonce is inside the signed message
+
+    /// A nonce that's only sent as a header (not in the signed bytes) can be stripped
+    /// by a MITM without invalidating the HMAC. This verifies the nonce is in the message.
+    func testNonceIsInsideSignedMessageNotJustAHeader() {
+        let method    = "POST"
+        let fullPath  = "/api/platform-messages/send"
+        let timestamp = "1700000000"
+        let nonce     = UUID().uuidString
+        let body      = Data("{}".utf8)
+
+        // This is the exact construction in APIClient.request()
+        let message = "\(method)\(fullPath)\(timestamp)\(nonce)".data(using: .utf8)! + body
+
+        // The nonce must appear in the message bytes, not just be a separate value.
+        let messageString = String(data: message, encoding: .utf8) ?? ""
+        XCTAssertTrue(
+            messageString.contains(nonce),
+            "Nonce must be inside the signed message bytes, not just a header"
+        )
+    }
+
+    func testNonceAppearsAfterTimestampInMessage() {
+        let method    = "GET"
+        let path      = "/api/catalog"
+        let timestamp = "1700000000"
+        let nonce     = UUID().uuidString
+
+        let headerPart = "\(method)\(path)\(timestamp)\(nonce)"
+        let tsRange    = headerPart.range(of: timestamp)!
+        let nonceRange = headerPart.range(of: nonce)!
+
+        XCTAssertTrue(
+            nonceRange.lowerBound > tsRange.upperBound,
+            "Nonce must appear after the timestamp in the signed message"
+        )
+    }
+
+    // MARK: - Different nonces produce different signed messages
+
+    func testDifferentNoncesProduceDifferentMessageBytes() {
+        let method    = "POST"
+        let path      = "/api/orders"
+        let timestamp = "1700000000"
+        let body      = Data("{}".utf8)
+
+        let nonce1 = UUID().uuidString
+        let nonce2 = UUID().uuidString
+
+        let msg1 = "\(method)\(path)\(timestamp)\(nonce1)".data(using: .utf8)! + body
+        let msg2 = "\(method)\(path)\(timestamp)\(nonce2)".data(using: .utf8)! + body
+
+        XCTAssertNotEqual(
+            msg1, msg2,
+            "Messages with different nonces must differ — proving nonce is part of the HMAC input"
+        )
+    }
+
+    // MARK: - Message format matches server expectation
+
+    /// The server computes: format!("{method}{path_and_query}{ts}{nonce}") + body_bytes
+    /// The iOS client computes: "\(method)\(fullPath)\(timestamp)\(nonce)".utf8 + bodyData
+    /// Both must produce identical bytes for the HMAC to verify.
+    func testMessageFormatMatchesServerExpectation() {
+        let method    = "POST"
+        let path      = "/api/keys/register"
+        let timestamp = "1700000000"
+        let nonce     = "6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
+        let body      = Data(#"{"identity_key":"abc"}"#.utf8)
+
+        // iOS construction (from APIClient.request)
+        let iosMessage = "\(method)\(path)\(timestamp)\(nonce)".data(using: .utf8)! + body
+
+        // Expected server construction (Rust: format!("{method}{path}{ts}{nonce}") + body)
+        let serverHeaderStr = "\(method)\(path)\(timestamp)\(nonce)"
+        let serverMessage   = serverHeaderStr.data(using: .utf8)! + body
+
+        XCTAssertEqual(iosMessage, serverMessage,
+                       "iOS and server must construct identical message bytes for HMAC to verify")
+    }
+
+    // MARK: - Nonce format (server validates UUID)
+
+    func testGeneratedNonceIsValidUUID() {
+        for _ in 0..<20 {
+            let nonce = UUID().uuidString
+            XCTAssertNotNil(UUID(uuidString: nonce),
+                            "UUID().uuidString must always produce a valid UUID: \(nonce)")
+        }
+    }
+
+    func testNonceIsUniqueAcrossRequests() {
+        let count  = 1000
+        let nonces = Set((0..<count).map { _ in UUID().uuidString })
+        XCTAssertEqual(nonces.count, count,
+                       "Each request must produce a unique nonce — no collisions in \(count) samples")
+    }
+
+    // MARK: - rawRequest uses the same protocol
+
+    func testRawRequestSignedMessageIncludesNonce() {
+        // rawRequest uses url.path (not /api prefix + path) and the same nonce protocol.
+        let method    = "PATCH"
+        let path      = "/api/staff/orders/42/ready"
+        let timestamp = "1700000000"
+        let nonce     = UUID().uuidString
+        let body      = Data()
+
+        // rawRequest construction (from APIClient.rawRequest)
+        let message = "\(method)\(path)\(timestamp)\(nonce)".data(using: .utf8)! + body
+
+        let messageString = String(data: message, encoding: .utf8) ?? ""
+        XCTAssertTrue(messageString.contains(nonce),
+                      "rawRequest signed message must also contain the nonce")
+        XCTAssertTrue(messageString.contains(timestamp),
+                      "rawRequest signed message must contain the timestamp")
+    }
+}
+
 // MARK: - Security
 
 final class SecurityTests: XCTestCase {

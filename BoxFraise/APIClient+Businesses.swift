@@ -58,6 +58,17 @@ extension APIClient {
 
     // MARK: - App Attest
 
+    // Fetch a server-issued challenge. Must be called before attestKey() so the server
+    // can verify the attestation was bound to a challenge it issued (not a client-forged one).
+    func fetchAttestChallenge() async throws -> Data {
+        struct ChallengeResponse: Decodable { let challenge: String }
+        let r: ChallengeResponse = try await request("/devices/attest-challenge")
+        guard let data = Data(base64Encoded: r.challenge) else {
+            throw APIError.serverError("invalid challenge encoding")
+        }
+        return data
+    }
+
     // hmacKey: the device's per-device HMAC signing key (base64) so the server can
     // validate request signatures for this device independently of the App Attest assertion.
     func registerAttestation(keyID: String, attestation: Data, challenge: Data,

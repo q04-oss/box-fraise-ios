@@ -9,6 +9,8 @@ enum APIError: LocalizedError {
     case rateLimited(retryAfter: TimeInterval)
     case http(Int)
     case pinningFailure
+    case keysNeedRefresh
+    case keysExpired
 
     var errorDescription: String? {
         switch self {
@@ -17,6 +19,8 @@ enum APIError: LocalizedError {
         case .rateLimited(let after):     return "too many requests — try again in \(Int(after))s"
         case .http(let c):                return "HTTP \(c)"
         case .pinningFailure:             return "secure connection could not be established"
+        case .keysNeedRefresh:            return "this contact hasn't opened their app recently — try again in a few hours"
+        case .keysExpired:                return "this contact needs to reinstall to enable messaging"
         }
     }
 }
@@ -112,16 +116,21 @@ actor APIClient {
             bodyData = Data()
         }
 
-        // HMAC-SHA256 over: method + fullPath + timestamp + body
+        // HMAC-SHA256 over: method + fullPath + timestamp + nonce + body
         //   method    — prevents method substitution (GET → POST)
         //   fullPath  — prevents path substitution (/orders → /admin)
         //   timestamp — replay window: server rejects requests older than 5 minutes
+        //   nonce     — UUID inside the signed payload; server tracks seen nonces in Redis
+        //               (TTL = timestamp window) so a captured request cannot be replayed
+        //               even within the 5-minute window
         //   body      — prevents body tampering after signing
         let timestamp = String(Int(Date().timeIntervalSince1970))
+        let nonce = UUID().uuidString
         let fullPath = "/api\(path)"
-        let message = "\(method)\(fullPath)\(timestamp)".data(using: .utf8)! + bodyData
+        let message = "\(method)\(fullPath)\(timestamp)\(nonce)".data(using: .utf8)! + bodyData
         let mac = HMAC<SHA256>.authenticationCode(for: message, using: Self.signingKey)
         req.setValue(timestamp, forHTTPHeaderField: "X-Fraise-Ts")
+        req.setValue(nonce, forHTTPHeaderField: "X-Fraise-Nonce")
         req.setValue(Data(mac).base64EncodedString(), forHTTPHeaderField: "X-Fraise-Sig")
 
         // App Attest assertion — layered on top of HMAC for attested devices
@@ -144,6 +153,8 @@ actor APIClient {
                 throw APIError.rateLimited(retryAfter: retryAfter)
             }
             let msg = (try? Self.decoder.decode([String: String].self, from: data))?["error"]
+            if msg == "keys_need_refresh" { throw APIError.keysNeedRefresh }
+            if msg == "keys_expired"      { throw APIError.keysExpired }
             throw APIError.serverError(msg ?? "HTTP \(status)")
         }
 
@@ -162,10 +173,12 @@ actor APIClient {
         req.httpBody = body
 
         let timestamp = String(Int(Date().timeIntervalSince1970))
+        let nonce = UUID().uuidString
         let path = url.path
-        let message = "\(method)\(path)\(timestamp)".data(using: .utf8)! + (body ?? Data())
+        let message = "\(method)\(path)\(timestamp)\(nonce)".data(using: .utf8)! + (body ?? Data())
         let mac = HMAC<SHA256>.authenticationCode(for: message, using: Self.signingKey)
         req.setValue(timestamp, forHTTPHeaderField: "X-Fraise-Ts")
+        req.setValue(nonce, forHTTPHeaderField: "X-Fraise-Nonce")
         req.setValue(Data(mac).base64EncodedString(), forHTTPHeaderField: "X-Fraise-Sig")
 
         let (data, _) = try await session.data(for: req)

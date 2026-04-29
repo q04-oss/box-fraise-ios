@@ -207,15 +207,19 @@ final class PinningDelegate: NSObject, URLSessionDelegate {
     // (Let's Encrypt renews every ~60 days), remove the old hash AFTER all clients update.
     // A single-hash gap = global request failure for all users. Verify in staging first.
     private static let pinnedHashes: Set<String> = [
-        "4ds9LCAvlHQB8boxWg9GOhXP4kY7D39TGVCMkbiPYu0=",   // current
-        // "REPLACE_WITH_NEXT_SPKI_HASH=",                 // next — add before renewal
+        "4ds9LCAvlHQB8boxWg9GOhXP4kY7D39TGVCMkbiPYu0=",   // current (Let's Encrypt)
+        // Add next hash here BEFORE cert rotates (LE renews every ~90 days):
+        //   openssl s_client -connect fraise.box:443 </dev/null \
+        //     | openssl x509 -pubkey -noout \
+        //     | openssl pkey -pubin -outform der \
+        //     | openssl dgst -sha256 -binary | base64
+        // "REPLACE_WITH_NEXT_SPKI_HASH=",
     ]
 
-    // Expiry date of the currently pinned certificate.
-    // Set this to the actual expiry (`openssl x509 -noout -enddate`) when adding a new hash.
-    // checkCertExpiry() logs a fault at launch when fewer than 30 days remain,
-    // so the next hash is added with enough lead time to push an app update.
-    static let currentCertExpiry: Date? = nil  // TODO: Date(timeIntervalSince1970: <unix_ts>)
+    // Set to the actual cert expiry unix timestamp so checkCertExpiry() can warn before rotation.
+    // Get it: openssl s_client -connect fraise.box:443 </dev/null | openssl x509 -noout -enddate
+    // Then convert: date -j -f "%b %d %T %Y %Z" "May 15 12:00:00 2025 GMT" +%s
+    static let currentCertExpiry: Date? = nil  // TODO: set to actual cert expiry timestamp
 
     static func checkCertExpiry() {
         guard let expiry = currentCertExpiry else { return }

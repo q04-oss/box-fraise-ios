@@ -125,11 +125,11 @@ actor FraiseMessaging {
         MessagingKeyStore.pruneExpiredSessions()
 
         // Rotate signed prekey if older than 7 days.
-        let lastRotated = UserDefaults.standard.double(forKey: Self.signedPreKeyLastRotatedKey)
+        let lastRotated = Keychain.readMetadata(key: Self.signedPreKeyLastRotatedKey).flatMap { Double($0) } ?? 0
         let now = Date().timeIntervalSince1970
         if lastRotated == 0 || now - lastRotated > Self.signedPreKeyRotationInterval {
             MessagingKeyStore.rotateSignedPreKey()
-            UserDefaults.standard.set(now, forKey: Self.signedPreKeyLastRotatedKey)
+            Keychain.saveMetadata(key: Self.signedPreKeyLastRotatedKey, value: String(now))
             Self.log.info("Signed prekey rotated")
         }
 
