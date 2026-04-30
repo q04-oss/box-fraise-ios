@@ -150,7 +150,7 @@ struct CartSheet: View {
     @Environment(\.fraiseColors) private var c
     @Environment(\.dismiss)       private var dismiss
     let business: Business
-    @Bindable var store: VenueDrinksStore  // @Bindable because VenueDrinksStore is @Observable
+    let store: VenueDrinksStore
     @State private var paymentSheet: PaymentSheet?
 
     var body: some View {
