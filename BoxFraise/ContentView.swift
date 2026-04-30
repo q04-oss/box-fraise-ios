@@ -268,6 +268,7 @@ struct SheetContent: View {
         case .meet:                return "meet"
         case .akene:               return "akene"
         case .partnerDetail(let b): return "partnerDetail-\(b.id)"
+        case .resetPassword:        return "resetPassword"
         }
     }
 
@@ -299,8 +300,9 @@ struct SheetContent: View {
         case .referrals:           ReferralsPanel()
         case .meet:                MeetPanel()
         case .akene:               AkenePanel()
-        case .partnerDetail(let b): PartnerDetailPanel(business: b)
-        case .loyalty(let b):       LoyaltyPanel(business: b)
+        case .partnerDetail(let b):       PartnerDetailPanel(business: b)
+        case .loyalty(let b):             LoyaltyPanel(business: b)
+        case .resetPassword(let token):   ResetPasswordPanel(token: token)
         }
     }
 }

@@ -34,4 +34,16 @@ extension APIClient {
         let _: OKResponse = try await request("/dates/opt-in", method: "PATCH",
                                                body: ["open": open], token: token)
     }
+
+    // MARK: - Password reset
+
+    func forgotPassword(email: String) async throws {
+        let _: OKResponse = try await request("/auth/forgot-password", method: "POST",
+                                               body: ["email": email])
+    }
+
+    func resetPassword(token: String, newPassword: String) async throws {
+        let _: OKResponse = try await request("/auth/reset-password", method: "POST",
+                                               body: ["token": token, "new_password": newPassword])
+    }
 }

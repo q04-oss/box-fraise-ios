@@ -154,6 +154,10 @@ extension BoxFraiseApp {
             appState.navigate(to: appState.isSignedIn ? .referrals : .auth)
         case "/meet":
             appState.navigate(to: appState.isSignedIn ? .meet : .auth)
+        case "/reset-password":
+            if let token = query?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
+                appState.navigate(to: .resetPassword(token: token))
+            }
         default:
             break
         }
