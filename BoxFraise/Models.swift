@@ -832,6 +832,14 @@ struct VenueOrderResponse: Codable {
     let totalCents:   Int
 }
 
+struct NFCRedeemResponse: Codable {
+    let businessId:        Int
+    let customerName:      String
+    let newBalance:        Int
+    let rewardAvailable:   Bool
+    let rewardDescription: String
+}
+
 struct CartItem: Identifiable, Equatable {
     let id:    Int  // drink.id
     let name:  String

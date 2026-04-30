@@ -104,6 +104,33 @@ extension BoxFraiseApp {
         let query = components?.queryItems
 
         switch path {
+        case _ where path.hasPrefix("/nfc/"):
+            let uuid = String(path.dropFirst("/nfc/".count))
+            guard !uuid.isEmpty else { break }
+            guard let token = appState.user?.token else {
+                appState.navigate(to: .auth)
+                break
+            }
+            Task {
+                do {
+                    let result = try await APIClient.shared.redeemNFCSticker(uuid: uuid, token: token)
+                    // Haptic — the customer feels the stamp before they see it.
+                    await MainActor.run {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                    // Navigate to the loyalty panel for this business so the
+                    // updated balance is immediately visible.
+                    if let biz = await appState.businesses.first(where: { $0.id == result.businessId }) {
+                        await MainActor.run { appState.navigate(to: .loyalty(biz)) }
+                    }
+                } catch {
+                    // NFC tap failed — expired window, already redeemed, not verified.
+                    await MainActor.run {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    }
+                }
+            }
+
         case "/order":
             if let slug = query?.first(where: { $0.name == "location" })?.value,
                let biz = appState.approvedBusinesses.first(where: { $0.slug == slug }) {

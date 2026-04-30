@@ -17,4 +17,8 @@ extension APIClient {
     func resendVerificationEmail(token: FraiseToken) async throws {
         let _: OKResponse = try await request("/auth/resend-verification", method: "POST", token: token)
     }
+
+    func redeemNFCSticker(uuid: String, token: FraiseToken) async throws -> NFCRedeemResponse {
+        try await request("/nfc/redeem", method: "POST", body: ["sticker_uuid": uuid], token: token)
+    }
 }
