@@ -742,26 +742,30 @@ enum Panel: Equatable, CustomStringConvertible {
     case home, auth, profile, popups, order, orderHistory, staff, nfcVerify, walkIn
     case standingOrders, messages, referrals, meet, akene
     case partnerDetail(Business)
+    case loyalty(Business)
+    case venueDrinks(Business)
 
     // Used as the identity value for SwiftUI panel transitions — must be unique per case.
     // Adding a new Panel case without updating description causes silent transition identity collisions.
     var description: String {
         switch self {
-        case .home: return "home"
-        case .auth: return "auth"
-        case .profile: return "profile"
-        case .popups: return "popups"
-        case .order: return "order"
-        case .orderHistory: return "orderHistory"
-        case .staff: return "staff"
-        case .nfcVerify: return "nfcVerify"
-        case .walkIn: return "walkIn"
-        case .standingOrders: return "standingOrders"
-        case .messages: return "messages"
-        case .referrals: return "referrals"
-        case .meet: return "meet"
-        case .akene: return "akene"
-        case .partnerDetail(let b): return "partnerDetail((b.id))"
+        case .home:                     return "home"
+        case .auth:                     return "auth"
+        case .profile:                  return "profile"
+        case .popups:                   return "popups"
+        case .order:                    return "order"
+        case .orderHistory:             return "orderHistory"
+        case .staff:                    return "staff"
+        case .nfcVerify:                return "nfcVerify"
+        case .walkIn:                   return "walkIn"
+        case .standingOrders:           return "standingOrders"
+        case .messages:                 return "messages"
+        case .referrals:                return "referrals"
+        case .meet:                     return "meet"
+        case .akene:                    return "akene"
+        case .partnerDetail(let b):     return "partnerDetail-\(b.id)"
+        case .loyalty(let b):           return "loyalty-\(b.id)"
+        case .venueDrinks(let b):       return "venueDrinks-\(b.id)"
         }
     }
 
@@ -775,9 +779,64 @@ enum Panel: Equatable, CustomStringConvertible {
              (.messages, .messages),
              (.referrals, .referrals),
              (.meet, .meet),
-             (.akene, .akene): return true
-        case (.partnerDetail(let a), .partnerDetail(let b)): return a.id == b.id
+             (.akene, .akene):                                       return true
+        case (.partnerDetail(let a), .partnerDetail(let b)):         return a.id == b.id
+        case (.loyalty(let a),       .loyalty(let b)):               return a.id == b.id
+        case (.venueDrinks(let a),   .venueDrinks(let b)):           return a.id == b.id
         default: return false
         }
     }
+}
+
+// MARK: - Loyalty models
+
+struct LoyaltyBalance: Codable {
+    let steepsEarned:      Int
+    let rewardsRedeemed:   Int
+    let currentBalance:    Int
+    let steepsPerReward:   Int
+    let rewardDescription: String
+    let steepsUntilReward: Int
+    let rewardAvailable:   Bool
+}
+
+struct LoyaltyEvent: Codable, Identifiable {
+    let id:         Int
+    let eventType:  String
+    let source:     String
+    let createdAt:  Date
+}
+
+struct LoyaltyQrToken: Codable {
+    let token:     String
+    let expiresAt: Date
+}
+
+// MARK: - Venue drinks models
+
+struct VenueDrink: Codable, Identifiable {
+    let id:          Int
+    let name:        String
+    let description: String
+    let priceCents:  Int
+    let category:    String
+    let sortOrder:   Int
+
+    var formattedPrice: String {
+        let dollars = Double(priceCents) / 100
+        return String(format: "$%.2f", dollars)
+    }
+}
+
+struct VenueOrderResponse: Codable {
+    let orderId:      Int
+    let clientSecret: String
+    let totalCents:   Int
+}
+
+struct CartItem: Identifiable, Equatable {
+    let id:    Int  // drink.id
+    let name:  String
+    let price: Int  // priceCents
+    var qty:   Int
 }

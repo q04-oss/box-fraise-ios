@@ -58,6 +58,35 @@ struct PartnerDetailPanel: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.border, lineWidth: 0.5))
                 }
 
+                // ── Loyalty inline prompt ─────────────────────────────────
+                if state.user != nil {
+                    LoyaltyInlineView(business: business)
+                }
+
+                // ── Drinks / order ahead ──────────────────────────────────
+                if state.user != nil {
+                    Button {
+                        state.navigate(to: .venueDrinks(business))
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("order ahead")
+                                    .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5).textCase(.uppercase)
+                                Text("drinks ready for pickup")
+                                    .font(.mono(12)).foregroundStyle(c.text)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .medium)).foregroundStyle(c.border)
+                        }
+                        .padding(.horizontal, Spacing.md).padding(.vertical, 13)
+                        .background(c.card)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("not yet a node")
