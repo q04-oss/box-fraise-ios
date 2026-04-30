@@ -13,4 +13,8 @@ extension APIClient {
     func fetchQrToken(businessId: Int, token: FraiseToken) async throws -> LoyaltyQrToken {
         try await request("/businesses/\(businessId)/loyalty/qr-token", token: token)
     }
+
+    func resendVerificationEmail(token: FraiseToken) async throws {
+        let _: OKResponse = try await request("/auth/resend-verification", method: "POST", token: token)
+    }
 }

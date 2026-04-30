@@ -795,6 +795,7 @@ struct LoyaltyBalance: Codable {
     let rewardDescription: String
     let steepsUntilReward: Int
     let rewardAvailable:   Bool
+    let emailVerified:     Bool
 }
 
 struct LoyaltyEvent: Codable, Identifiable {

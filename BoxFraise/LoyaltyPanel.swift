@@ -190,7 +190,10 @@ struct LoyaltyPanel: View {
             Text("stamp code")
                 .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5).textCase(.uppercase)
 
-            if store.isLoadingQR {
+            if store.balance?.emailVerified == false {
+                // Unverified — show prompt instead of QR.
+                verificationPrompt
+            } else if store.isLoadingQR {
                 SkeletonBlock(height: 180)
             } else if let url = store.stampURL() {
                 VStack(spacing: 12) {
@@ -224,6 +227,67 @@ struct LoyaltyPanel: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Verification prompt
+
+    @State private var resendSent    = false
+    @State private var resendLoading = false
+
+    private var verificationPrompt: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "envelope.badge")
+                .font(.system(size: 36)).foregroundStyle(c.muted)
+
+            VStack(spacing: 6) {
+                Text("verify your email")
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(c.text)
+                Text("check your inbox for a verification link to start earning steeps at walk-in visits")
+                    .font(.mono(12)).foregroundStyle(c.muted)
+                    .multilineTextAlignment(.center).lineSpacing(3)
+            }
+
+            if resendSent {
+                Text("email sent")
+                    .font(.mono(12)).foregroundStyle(c.muted)
+            } else {
+                Button {
+                    guard let token = state.user?.token, !resendLoading else { return }
+                    resendLoading = true
+                    Task {
+                        try? await APIClient.shared.resendVerificationEmail(token: token)
+                        resendSent   = true
+                        resendLoading = false
+                    }
+                } label: {
+                    Group {
+                        if resendLoading {
+                            ProgressView().frame(height: 20)
+                        } else {
+                            Text("resend verification email")
+                                .font(.mono(12)).foregroundStyle(c.text)
+                        }
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(c.card)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.button))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.button).strokeBorder(c.border, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(resendLoading)
+            }
+
+            Text("in-app purchases still earn steeps — verification is only needed for walk-in stamps")
+                .font(.mono(10)).foregroundStyle(c.muted)
+                .multilineTextAlignment(.center).lineSpacing(3)
+        }
+        .padding(Spacing.md)
+        .background(c.card)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(c.border, lineWidth: 0.5))
+        // Return here so the compiler can see this as part of qrSection.
+        // The early return in qrSection uses AnyView — workaround:
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - History preview
