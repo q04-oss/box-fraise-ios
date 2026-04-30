@@ -743,7 +743,6 @@ enum Panel: Equatable, CustomStringConvertible {
     case standingOrders, messages, referrals, meet, akene
     case partnerDetail(Business)
     case loyalty(Business)
-    case venueDrinks(Business)
 
     // Used as the identity value for SwiftUI panel transitions — must be unique per case.
     // Adding a new Panel case without updating description causes silent transition identity collisions.
@@ -765,7 +764,6 @@ enum Panel: Equatable, CustomStringConvertible {
         case .akene:                    return "akene"
         case .partnerDetail(let b):     return "partnerDetail-\(b.id)"
         case .loyalty(let b):           return "loyalty-\(b.id)"
-        case .venueDrinks(let b):       return "venueDrinks-\(b.id)"
         }
     }
 
@@ -782,7 +780,6 @@ enum Panel: Equatable, CustomStringConvertible {
              (.akene, .akene):                                       return true
         case (.partnerDetail(let a), .partnerDetail(let b)):         return a.id == b.id
         case (.loyalty(let a),       .loyalty(let b)):               return a.id == b.id
-        case (.venueDrinks(let a),   .venueDrinks(let b)):           return a.id == b.id
         default: return false
         }
     }

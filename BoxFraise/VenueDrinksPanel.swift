@@ -1,99 +1,9 @@
 import SwiftUI
 import StripePaymentSheet
 
-struct VenueDrinksPanel: View {
-    @Environment(AppState.self)  private var state
-    @Environment(\.fraiseColors) private var c
-    let business: Business
-    @State private var store: VenueDrinksStore
-    @State private var paymentSheet: PaymentSheet?
-    @State private var showCart = false
+// MARK: - Drink row (used inline in PartnerDetailPanel)
 
-    init(business: Business) {
-        self.business = business
-        _store = State(initialValue: VenueDrinksStore(business: business))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // ── Header ─────────────────────────────────────────────────────────
-            HStack {
-                FraiseBackButton { state.navigate(to: .partnerDetail(business)) }
-                Spacer()
-                if store.cartCount > 0 {
-                    Button {
-                        showCart = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("\(store.cartCount)")
-                                .font(.mono(12))
-                                .foregroundStyle(c.text)
-                            Text(store.cartTotalCents.formattedPrice)
-                                .font(.mono(12))
-                                .foregroundStyle(c.muted)
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(c.card)
-                        .clipShape(Capsule())
-                        .overlay(Capsule().strokeBorder(c.border, lineWidth: 0.5))
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 12)
-            .animation(.fraiseSpring, value: store.cartCount > 0)
-
-            Divider().opacity(Divide.section)
-
-            // ── Menu ───────────────────────────────────────────────────────────
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("menu")
-                            .font(.mono(9)).foregroundStyle(c.muted).tracking(1.5).textCase(.uppercase)
-                        Text(business.name.lowercased())
-                            .font(.system(size: 24, design: .serif)).foregroundStyle(c.text)
-                    }
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.md)
-                    .padding(.bottom, Spacing.sm)
-
-                    if store.isLoading {
-                        ForEach(0..<4, id: \.self) { _ in
-                            SkeletonBlock(height: 64)
-                                .padding(.horizontal, Spacing.md)
-                                .padding(.vertical, 4)
-                        }
-                    } else if store.menu.isEmpty {
-                        Text("no drinks available")
-                            .font(.mono(13)).foregroundStyle(c.muted)
-                            .padding(Spacing.md)
-                    } else {
-                        ForEach(store.menu) { drink in
-                            DrinkRow(drink: drink, qty: store.cart[drink.id] ?? 0) { delta in
-                                if delta > 0 { store.add(drink) }
-                                else         { store.remove(drink) }
-                            }
-                            Divider().padding(.leading, Spacing.md).opacity(Divide.row)
-                        }
-                    }
-                }
-                .padding(.bottom, store.cartCount > 0 ? 100 : 32)
-            }
-            .scrollIndicators(.hidden)
-        }
-        .sheet(isPresented: $showCart) {
-            CartSheet(business: business, store: store)
-        }
-        .onAppear { Task { await store.loadMenu() } }
-    }
-}
-
-// MARK: - Drink row
-
-private struct DrinkRow: View {
+struct DrinkRow: View {
     @Environment(\.fraiseColors) private var c
     let drink:    VenueDrink
     let qty:      Int
@@ -113,7 +23,6 @@ private struct DrinkRow: View {
             Text(drink.formattedPrice)
                 .font(.mono(12)).foregroundStyle(c.muted)
 
-            // Stepper
             HStack(spacing: 0) {
                 if qty > 0 {
                     Button { onChange(-1) } label: {
@@ -143,14 +52,14 @@ private struct DrinkRow: View {
     }
 }
 
-// MARK: - Cart sheet
+// MARK: - Cart sheet (presented from PartnerDetailPanel)
 
 struct CartSheet: View {
-    @Environment(AppState.self)  private var state
-    @Environment(\.fraiseColors) private var c
+    @Environment(AppState.self)   private var state
+    @Environment(\.fraiseColors)  private var c
     @Environment(\.dismiss)       private var dismiss
     let business: Business
-    let store: VenueDrinksStore
+    let store:    VenueDrinksStore
     @State private var paymentSheet: PaymentSheet?
 
     var body: some View {
@@ -185,7 +94,6 @@ struct CartSheet: View {
                         .padding(.horizontal, Spacing.md).padding(.top, 8)
                 }
 
-                // Payment button
                 Group {
                     if let sheet = paymentSheet {
                         PaymentSheet.PaymentButton(paymentSheet: sheet) { result in
@@ -210,13 +118,15 @@ struct CartSheet: View {
             }
             .navigationTitle("your order")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarLeading) {
-                Button("clear") {
-                    store.clearCart()
-                    dismiss()
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("clear") {
+                        store.clearCart()
+                        dismiss()
+                    }
+                    .font(.mono(12)).foregroundStyle(c.muted)
                 }
-                .font(.mono(12)).foregroundStyle(c.muted)
-            }}
+            }
         }
         .fraiseTheme()
     }
@@ -225,16 +135,14 @@ struct CartSheet: View {
         Group {
             if store.isSubmittingOrder {
                 ProgressView()
-                    .frame(height: 48)
-                    .frame(maxWidth: .infinity)
+                    .frame(height: 48).frame(maxWidth: .infinity)
                     .background(c.text)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.button))
             } else {
                 Text("pay \(store.cartTotalCents.formattedPrice)")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(c.background)
-                    .frame(height: 48)
-                    .frame(maxWidth: .infinity)
+                    .frame(height: 48).frame(maxWidth: .infinity)
                     .background(c.text)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.button))
             }
@@ -244,10 +152,8 @@ struct CartSheet: View {
     private func preparePayment(token: FraiseToken) async {
         await store.submitOrder(token: token)
         guard let secret = store.pendingClientSecret else { return }
-
         var config = PaymentSheet.Configuration()
         config.merchantDisplayName = business.name
-
         paymentSheet = PaymentSheet(paymentIntentClientSecret: secret, configuration: config)
     }
 
@@ -257,11 +163,8 @@ struct CartSheet: View {
         case .completed:
             store.clearCart()
             store.clearPendingOrder()
-            // Haptic confirmation
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
-            // Nudge the user back to the business detail so they see the loyalty update.
-            state.navigate(to: .partnerDetail(business))
         case .canceled:
             break
         case .failed(let err):
@@ -272,7 +175,7 @@ struct CartSheet: View {
 
 // MARK: - Helpers
 
-private extension Int {
+extension Int {
     var formattedPrice: String {
         String(format: "$%.2f", Double(self) / 100)
     }

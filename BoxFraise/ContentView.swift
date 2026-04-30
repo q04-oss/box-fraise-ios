@@ -301,7 +301,6 @@ struct SheetContent: View {
         case .akene:               AkenePanel()
         case .partnerDetail(let b): PartnerDetailPanel(business: b)
         case .loyalty(let b):       LoyaltyPanel(business: b)
-        case .venueDrinks(let b):   VenueDrinksPanel(business: b)
         }
     }
 }
